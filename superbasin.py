@@ -35,7 +35,7 @@ class Superbasin():
         self.absorption_probability_matrix()
         self.calculate_transition_rates_absorbing_states(num_event)
         self.calculate_superbasin_environment(grid_crystal)
-        
+
    
     def trans_absorbing_states(self,start_idx,System_state,sites_occupied):
         

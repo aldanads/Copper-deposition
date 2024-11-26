@@ -44,12 +44,9 @@ def KMC(System_state,rng):
     # When we only have one node in the tree, it returns a tuple
     if type(sumTR) is tuple: sumTR = sumTR[0]
     # We search in our binary tree the event that happen
+
     chosen_event = search_value(TR_tree,sumTR*rng.random())
-    
-    
-    if chosen_event[-1] == (7,-4,11):
-            print('Chosen event:',chosen_event)
-            
+
     #Calculate the time step
     time_step += -np.log(rng.random())/sumTR
     # If the time step is big because of the TR, we need to allow the deposition process to occur

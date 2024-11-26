@@ -11,6 +11,7 @@ from scipy import constants
 import numpy as np
 import math
 from matplotlib import cm
+import time
 
 # Pymatgen for creating crystal structure and connect with Crystallography Open Database or Material Project
 # from pymatgen.ext.cod import COD
@@ -27,7 +28,11 @@ from ovito.vis import *
 from ovito.io import export_file
 from concurrent.futures import ThreadPoolExecutor
 
+import concurrent.futures
+from multiprocessing import Manager
+
 import json
+import os
 
 # Rotation of a vector - Is copper growing in [111] direction?
 # The basis vector is in [001]
@@ -43,6 +48,8 @@ class Crystal_Lattice():
         self.latt_orientation = crystal_features[2]
         self.api_key = crystal_features[3]
 
+        self.sticking_coefficient = experimental_conditions[0]
+        self.partial_pressure = experimental_conditions[1]
         self.temperature = experimental_conditions[2]
         self.experiment = experimental_conditions[3]
         self.activation_energies = Act_E_list
@@ -157,53 +164,172 @@ class Crystal_Lattice():
                     self.activation_energies)
                 for site in self.structure
             }
-            
-            
-            # Create labels for each possible migration pathway
-            neighbors = self.structure.get_neighbors(self.structure[0], radius_neighbors)
-            event_labels = {tuple(self.get_idx_coords(site.coords,self.basis_vectors) - np.array(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))):i 
-                            for i,site in enumerate(neighbors)}
-            
-            tol = 1e-6
-            missing_sites = []
-            # Obtain the neighbors at each site
+
+
+            # Search for missing sites before we start the neighbor analysis
             for site in self.structure:
                 # Neighbors for each idx in grid_crystal
-                idx = self.get_idx_coords(site.coords,self.basis_vectors)
                 neighbors = self.structure.get_neighbors(site,radius_neighbors)
                 neighbors_positions = [neigh.coords for neigh in neighbors]
                 neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
-                
-                
+
+                """
+                Handle missing neighbors
+                """
+                tol = 1e-6
+    
                 # Some sites are not created with the dictionary comprenhension
                 # If the sites have neighbors that are within the crystal dimension range
                 # but not included, we included
                 for neigh_idx,pos in zip(neighbors_idx,neighbors_positions):
-                    if (neigh_idx not in self.grid_crystal) and (-tol <= pos[2] <= self.crystal_size[2] + tol):
+                    
+                    
+                    if (neigh_idx not in self.grid_crystal) and (-tol <= pos[2] <= self.crystal_size[2] + tol): 
+                        # and (0 <= pos[1] <= self.crystal_size[1] + tol) and (0 <= pos[0] <= self.crystal_size[0] + tol)):
+                
                         pos_aux = (pos[0] % self.crystal_size[0], pos[1] % self.crystal_size[1], pos[2])
                         
                         # If not in the boundary region, where we should apply periodic boundary conditions
-                       
                         if tuple(pos) == pos_aux:
-                            missing_sites.append([neigh_idx,pos])
-                            self.grid_crystal[neigh_idx] = Site("Empty",
+                           self.grid_crystal[neigh_idx] = Site("Empty",
                                 tuple(pos),
                                 self.activation_energies)
-                  
-                self.grid_crystal[idx].neighbors_analysis(self.grid_crystal,neighbors_idx,neighbors_positions,
-                                        self.crystal_size,event_labels,idx)
+
+
+
+            # Create labels for each possible migration pathway
+            neighbors = self.structure.get_neighbors(self.structure[0], radius_neighbors)
+            self.event_labels = {tuple(self.get_idx_coords(site.coords,self.basis_vectors) 
+                                       - np.array(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))):i 
+                            for i,site in enumerate(neighbors)}
             
-            # Include neighbors of the missing sites
-            for idx,pos in missing_sites:
-                # Detect neighbors through coordinates
-                neighbors = self.structure.get_sites_in_sphere(pos,radius_neighbors)
-                neighbors = [neighbor for neighbor in neighbors if not np.allclose(neighbor.coords, pos)]
+        
+            # Use ProcessPoolExecutor to parallelize the loop
+            start_time = time.perf_counter()
+            num_cores = concurrent.futures.ProcessPoolExecutor()._max_workers
+            grid_keys = list(self.grid_crystal.keys())
+            
+            # Calculate batch size based on the number of keys
+            batch_size = len(grid_keys) // num_cores
+            batches = [grid_keys[i:i + batch_size] for i in range(0, len(grid_keys), batch_size)]
+
+            # Each process generates its dictionary 
+            results = []
+            with concurrent.futures.ProcessPoolExecutor() as executor:
+                results = list(executor.map(self.process_batch_site, batches))                
+    
+            # Combine results from all processes: Merge dictionaries and combine missing sites
+            for result in results:
+                sub_grid_crystal = result
+                self.grid_crystal.update(sub_grid_crystal)
+          
+            end_time = time.perf_counter()
+            
+            elapsed_time = end_time - start_time
+            print(f"Time neighbors: {elapsed_time:.4f} seconds")
+
+            
+                
+    def process_batch_site(self, batch):
+
+        radius_neighbors = 3
+        local_grid_crystal = {key:self.grid_crystal[key] for key in batch}
+ 
+
+        for idx,site in local_grid_crystal.items():
+
+            neighbors = self.structure.get_sites_in_sphere(site.position,radius_neighbors)
+            neighbors = [neighbor for neighbor in neighbors if not np.allclose(neighbor.coords, site.position)]
+            neighbors_positions = [neigh.coords for neigh in neighbors]
+            neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
+        
+
+            site.neighbors_analysis(
+                self.grid_crystal, neighbors_idx, neighbors_positions,
+                self.crystal_size, self.event_labels, idx
+            )
+
+
+        return local_grid_crystal
+                
+            
+           
+    def crystal_grid_2(self):
+            radius_neighbors = 3
+            self.coord_cache = {}
+            
+            # np.linalg.solve --> To obtain the linear combination of the basis vector for the site coordinate
+            # We obtain integer idx
+            self.grid_crystal = {
+                self.get_idx_coords(site.coords,self.basis_vectors):Site("Empty",
+                    tuple(site.coords),
+                    self.activation_energies)
+                for site in self.structure
+            }
+            
+            # Search for missing sites before we start the neighbor analysis
+            for site in self.structure:
+                # idx = self.get_idx_coords(site.coords,self.basis_vectors)
+                # Neighbors for each idx in grid_crystal
+                neighbors = self.structure.get_neighbors(site,radius_neighbors)
                 neighbors_positions = [neigh.coords for neigh in neighbors]
                 neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
+
+                """
+                Handle missing neighbors
+                """
+                tol = 1e-6
+    
+                # Some sites are not created with the dictionary comprenhension
+                # If the sites have neighbors that are within the crystal dimension range
+                # but not included, we included
+                for neigh_idx,pos in zip(neighbors_idx,neighbors_positions):
+                    
+                    
+                    if (neigh_idx not in self.grid_crystal) and (-tol <= pos[2] <= self.crystal_size[2] + tol): 
+                        # and (0 <= pos[1] <= self.crystal_size[1] + tol) and (0 <= pos[0] <= self.crystal_size[0] + tol)):
                 
-                self.grid_crystal[idx].neighbors_analysis(self.grid_crystal,neighbors_idx,neighbors_positions,
-                                        self.crystal_size,event_labels,idx)
+                        pos_aux = (pos[0] % self.crystal_size[0], pos[1] % self.crystal_size[1], pos[2])
+                        
+                        # If not in the boundary region, where we should apply periodic boundary conditions
+                        if tuple(pos) == pos_aux:
+                           self.grid_crystal[neigh_idx] = Site("Empty",
+                                tuple(pos),
+                                self.activation_energies)
+            
+            # Create labels for each possible migration pathway
+            neighbors = self.structure.get_neighbors(self.structure[0], radius_neighbors)
+            self.event_labels = {tuple(self.get_idx_coords(site.coords,self.basis_vectors) - np.array(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))):i 
+                            for i,site in enumerate(neighbors)}
+            
+
+
+            # Obtain the neighbors at each site
+            start_time = time.perf_counter()
                 
+            for idx,site in self.grid_crystal.items():
+
+                neighbors = self.structure.get_sites_in_sphere(site.position,radius_neighbors)
+                neighbors = [neighbor for neighbor in neighbors if not np.allclose(neighbor.coords, site.position)]
+                neighbors_positions = [neigh.coords for neigh in neighbors]
+                neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
+            
+
+                site.neighbors_analysis(
+                    self.grid_crystal, neighbors_idx, neighbors_positions,
+                    self.crystal_size, self.event_labels, idx
+                    )
+                
+                # if (i+1)%10 == 0:
+                #     print('Sites analyzed: ',str(i+1),'/',str(len(self.structure)),"| ",100*(i+1)/len(self.structure),' %')
+
+            print('Neighbor analysis finished')                            
+            end_time = time.perf_counter()
+            
+            elapsed_time = end_time - start_time
+            print(f"Time neighbors: {elapsed_time:.4f} seconds")
+                    
+                            
  
                 
 
@@ -263,7 +389,9 @@ class Crystal_Lattice():
         """
         
         for idx,site in self.grid_crystal.items():
-            if (self.crystal_size[0] * 0.45 < site.position[0] < self.crystal_size[0] * 0.55) and (self.crystal_size[1] * 0.45 < site.position[1] < self.crystal_size[1] * 0.55):
+            if ((self.crystal_size[0] * 0.45 < site.position[0] < self.crystal_size[0] * 0.55) 
+                and (self.crystal_size[1] * 0.45 < site.position[1] < self.crystal_size[1] * 0.55)
+                and site.position[2] < self.crystal_size[1] * 0.2):
                 break            # Introduce specie in the site
         
         # Obtain the different edge in the plane
@@ -299,7 +427,6 @@ class Crystal_Lattice():
         for mig,facet in mig_parallel_facets.items():
             list_edges = []
             for edge,vector in edges.items():
-                
                 if abs(np.dot(vector,facet[1][1])) < 1e-12:
                     list_edges.append(edge)
                 
@@ -633,9 +760,6 @@ class Crystal_Lattice():
        
             # Update sites availables, the support to each site and available migrations
             self.update_sites(update_specie_events,update_supp_av)
-            
-                # print(self.sites_occupied)
-                # quit()
 
 # =============================================================================
 #         Specie deposition
@@ -689,7 +813,7 @@ class Crystal_Lattice():
                 futures = []
 
                 for batch in batches:
-                    futures.append(executor.submit(self.process_batch, batch, update_specie_events))
+                    futures.append(executor.submit(self.process_batch_update, batch, update_specie_events))
                         
                 for future in futures:
                     future.result()  # Wait for all futures to complete
@@ -702,15 +826,15 @@ class Crystal_Lattice():
                 self.grid_crystal[idx].transition_rates(self.temperature)
     
                 
-    def process_site(self, idx, update_specie_events):
+    def process_site_update(self, idx, update_specie_events):
         self.grid_crystal[idx].supported_by(self.grid_crystal, self.wulff_facets[:,14],self.dir_edge_facets)
         self.available_adsorption_sites([idx])
         if self.grid_crystal[idx].chemical_specie != 'Empty':
             update_specie_events.append(idx)
             
-    def process_batch(self, batch, update_specie_events):
+    def process_batch_update(self, batch, update_specie_events):
         for idx in batch:
-            self.process_site(idx, update_specie_events)
+            self.process_site_update(idx, update_specie_events)
 
 # =============================================================================
 #             Introduce particle
@@ -903,17 +1027,36 @@ class Crystal_Lattice():
             export_file(data, path+str(i)+".dump", "lammps/dump",
                 columns = ["Particle Identifier","Position.X", "Position.Y", "Position.Z","Particle Type"])
             
-            # Write the metadata file
-            metadata = {species_mapping[specie]: specie for specie in species_mapping}
-            if i == 1:
-                with open(path + "metadata.json", 'w') as metadata_file:
-                    json.dump(metadata, metadata_file)
-                    
             # Add the time step as a comment at the beginning of the dump file
             with open(path + str(i) + ".dump", 'r+') as dump_file:
                 content = dump_file.read()
                 dump_file.seek(0, 0)
                 dump_file.write(f"# Time: {self.time:.10f}\n" + content)
+            
+            
+            # Write the metadata file
+            if i == 1:
+                
+                metadata_species = {species_mapping[specie]: specie for specie in species_mapping}
+                metadata_experimental_conditions = {'Experiment':self.experiment,
+                                                    'Temperature':self.temperature,
+                                                    'Partial pressure':self.partial_pressure,
+                                                    'Sticking coefficient':self.sticking_coefficient}
+                metadata_simulation_setup = {'Simulation domain (Angstroms)':self.crystal_size,
+                                             'Growth direction':self.latt_orientation,
+                                             'Material id (Materials Project)':self.id_material,
+                                             'Search superbasin after n steps with small time steps': self.n_search_superbasin,
+                                             'Time limitation to search superbasin': self.time_step_limits,
+                                             'Minimum activation energy for building superbasins':self.E_min,
+                                             'Activation energy set':self.activation_energies}
+                with open(path + "metadata.json", 'w') as metadata_file:
+                    json.dump({
+                        "experimental_conditions": metadata_experimental_conditions,
+                        "species": metadata_species,
+                        "simulation_setup": metadata_simulation_setup
+                    }, metadata_file, indent=4)
+                    
+
         
     def plot_crystal_surface(self):
         

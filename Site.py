@@ -7,6 +7,7 @@ Created on Mon Jan 15 11:46:12 2024
 from scipy import constants
 import numpy as np
 from sklearn.decomposition import PCA
+import os
 
 
 class Site():
@@ -33,9 +34,11 @@ class Site():
        
         tol = 1e-6
         #num_event = 0
-        for idx,pos in zip(neigh_idx,neigh_cart):
 
+        for idx,pos in zip(neigh_idx,neigh_cart):
+                
             if tuple(idx) in grid_crystal:
+                
                 self.nearest_neighbors_idx.append(tuple(idx))             
                 self.nearest_neighbors_cart.append(tuple(pos))
                 
@@ -56,7 +59,6 @@ class Site():
             # If pos is out of the boundary in xy but within z limits:
             elif (-tol <= pos[2] <= crystal_size[2] + tol):
                 
- 
                 # Apply periodic boundary conditions in the xy plane
                 pos = (pos[0] % crystal_size[0], pos[1] % crystal_size[1], pos[2])
     
@@ -65,7 +67,7 @@ class Site():
                     ((np.linalg.norm(np.array(site.position) - np.array(pos)), idx) for idx, site in grid_crystal.items()),
                     key=lambda x: x[0]
                 )
-                
+
                 self.nearest_neighbors_idx.append(tuple(min_dist_idx))
                 self.nearest_neighbors_cart.append(tuple(grid_crystal[min_dist_idx].position))
 
@@ -81,8 +83,7 @@ class Site():
                 elif (pos[2]-self.position[2]) < -tol:               
                     self.migration_paths['Down'].append([tuple(min_dist_idx),event_labels[tuple(idx - np.array(idx_origin))]])
               
-        
-            
+    
 # =============================================================================
 #         Occupied sites supporting this node
 # =============================================================================    
@@ -95,7 +96,7 @@ class Site():
         tol = 1e-6
         if self.position[2] <= tol:
             self.supp_by.append('Substrate')
-                 
+
         # Go over the nearest neighbors
         for idx in self.nearest_neighbors_idx:
             # Select the occupied sites that support this node
@@ -129,8 +130,6 @@ class Site():
                 
         self.supp_by = tuple(self.supp_by)
                         
-        if self.position == (8.762879735528042, 2.5296254870917156, 2.6569548053786724e-16):
-            print(self.supp_by)
         
         self.detect_edges(grid_crystal,dir_edge_facets,chemical_specie)               
         self.calculate_clustering_energy()
@@ -150,8 +149,7 @@ class Site():
             if cache_key in self.cache_clustering_energy:
                 self.energy_site = self.cache_clustering_energy[cache_key]
                 return
-            
-            if 'Substrate' in self.supp_by:
+                
                 self.energy_site = self.Act_E_list[-1][len(self.supp_by)] + self.Act_E_list[-2]
             else:
                 self.energy_site = self.Act_E_list[-1][len(self.supp_by)+1]

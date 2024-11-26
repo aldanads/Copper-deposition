@@ -1,0 +1,116 @@
+{
+  "elements": [
+    {
+      "name": "Ag",
+      "activation_energies": {
+        "type1_surface1": 0.95,
+        "type1_surface2": 1.05,
+        "type2_surface1": 1.10,
+        "type2_surface2": 1.20,
+        "type3_surface1": 1.30
+      }
+    },
+    {
+      "name": "Cu",
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": 0.043,
+        "upward_substrate_to_111": 0.313,
+        "downward_111_to_substrate": 0.095,
+        "upward_111": 0.313,
+        "downward_111": 0.095,
+        "upward_substrate_to_100": 0.528,
+        "downward_100_to_substrate": 0.318,
+        "surface_111": 0.043,
+        "surface_100": 0.477,  
+        "edge_100": 0.245,      
+        "edge_111": 0.309,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": 0,
+        "Coordination_number_contribution": -0.15,
+        "Reference": ["10.1103/PhysRevB.76.245407","10.1103/PhysRevB.76.245408"],
+        "Description": "Cu film growing in 111 direction (homoepitaxial)"
+      },
+      "activation_energies_Cu_111_on_TaN (eV)": {
+        "plane_substrate": 0.85,
+        "upward_substrate_to_111": 0.13,
+        "downward_111_to_substrate": 0.13,
+        "upward_111_111":0.13,
+        "downward_111_111":0.095,
+        "upward_substrate_to_100": 0.19,
+        "downward_100_to_substrate": 0.318,
+        "surface_111": 0.043,
+        "surface_100": 0.477,
+        "edge_100": 0.245,
+        "edge_111": 0.309,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": 0,
+        "Coordination_number_contribution": -0.15,
+        "Reference": ["10.1039/d1sc04708f","10.1039/c8tc06118a","10.1103/PhysRevB.76.245407","10.1103/PhysRevB.76.245408"],
+        "Description": "Cu film growing in 111 direction on TaN substrate (heteroepitaxial)"
+
+      },
+      "activation_energies_Cu_111_on_Ru25 (eV)": {
+        "plane_substrate": 0.6,
+        "upward_substrate_to_111": 0.13,
+        "downward_111_to_substrate": 0.13,
+        "upward_111_111":0.20,
+        "downward_111_111":0.095,
+        "upward_substrate_to_100": 0.23,
+        "downward_100_to_substrate": 0.318,
+        "surface_111": 0.043,
+        "surface_100": 0.477,
+        "edge_100": 0.245,
+        "edge_111": 0.309,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": -0.05,
+        "Coordination_number_contribution": -0.15,
+        "Reference": ["10.1039/d1sc04708f","10.1039/c8tc06118a","10.1103/PhysRevB.76.245407","10.1103/PhysRevB.76.245408"],
+        "Description": "Cu film growing in 111 direction on Ru25-TaN substrate (heteroepitaxial)"
+
+      },
+      "activation_energies_Cu_111_on_Ru50 (eV)": {
+        "plane_substrate": 0.4,
+        "upward_substrate_to_111": 0.13,
+        "downward_111_to_substrate": 0.13,
+        "upward_111_111":0.28,
+        "downward_111_111":0.095,
+        "upward_substrate_to_100": 0.38,
+        "downward_100_to_substrate": 0.318,
+        "surface_111": 0.043,
+        "surface_100": 0.477,
+        "edge_100": 0.245,
+        "edge_111": 0.309,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": -0.15,
+        "Coordination_number_contribution": -0.15,
+        "Reference": ["10.1039/d1sc04708f","10.1039/c8tc06118a","10.1103/PhysRevB.76.245407","10.1103/PhysRevB.76.245408"],
+        "Description": "Cu film growing in 111 direction on Ru50-TaN substrate (heteroepitaxial)"
+
+      }
+    },
+    {
+      "name": "Co",
+      "activation_energies": {
+        "type1_surface1": 1.50,
+        "type1_surface2": 1.60,
+        "type2_surface1": 1.70,
+        "type2_surface2": 1.80,
+        "type3_surface1": 1.90
+      }
+    },
+    {
+      "name": "Ru",
+      "activation_energies": {
+        "type1_surface1": 1.80,
+        "type1_surface2": 1.90,
+        "type2_surface1": 2.00,
+        "type2_surface2": 2.10,
+        "type3_surface1": 2.20
+      }
+    }
+  ]
+}
