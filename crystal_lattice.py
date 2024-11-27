@@ -47,6 +47,7 @@ class Crystal_Lattice():
         self.crystal_size = crystal_features[1]
         self.latt_orientation = crystal_features[2]
         self.api_key = crystal_features[3]
+        use_parallel = crystal_features[4]
 
         self.sticking_coefficient = experimental_conditions[0]
         self.partial_pressure = experimental_conditions[1]
@@ -63,8 +64,8 @@ class Crystal_Lattice():
         self.list_time = []
         
         self.lattice_model()
-        self.crystal_grid()
-        
+        self.crystal_grid(use_parallel)
+                
         # Events corresponding to migrations + superbasin migration (+1) + deposition (+1)
         # self.num_event = len(self.latt.get_neighbor_positions((0,0,0))) + 2
         self.num_event = len(self.structure.get_neighbors(self.structure[0],3)) + 2
@@ -152,11 +153,18 @@ class Crystal_Lattice():
             
         self.crystal_size = self.structure.lattice.abc
             
-    def crystal_grid(self):
+    def crystal_grid(self,use_parallel=None):
+        
+            # Set default parallelization based on system size and cores
+            if use_parallel is None:
+                use_parallel = len(self.structure) > 1600
+                
+                
+                
             radius_neighbors = 3
             self.coord_cache = {}
             
-            # np.linalg.solve --> To obtain the linear combination of the basis vector for the site coordinate
+            # Step 1: Create the initial grid_crystal dictionary
             # We obtain integer idx
             self.grid_crystal = {
                 self.get_idx_coords(site.coords,self.basis_vectors):Site("Empty",
@@ -165,7 +173,7 @@ class Crystal_Lattice():
                 for site in self.structure
             }
 
-
+            # Step 2: Handle missing neighbors
             # Search for missing sites before we start the neighbor analysis
             for site in self.structure:
                 # Neighbors for each idx in grid_crystal
@@ -173,9 +181,7 @@ class Crystal_Lattice():
                 neighbors_positions = [neigh.coords for neigh in neighbors]
                 neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
 
-                """
-                Handle missing neighbors
-                """
+                # Handle missing neighbors
                 tol = 1e-6
     
                 # Some sites are not created with the dictionary comprenhension
@@ -185,7 +191,6 @@ class Crystal_Lattice():
                     
                     
                     if (neigh_idx not in self.grid_crystal) and (-tol <= pos[2] <= self.crystal_size[2] + tol): 
-                        # and (0 <= pos[1] <= self.crystal_size[1] + tol) and (0 <= pos[0] <= self.crystal_size[0] + tol)):
                 
                         pos_aux = (pos[0] % self.crystal_size[0], pos[1] % self.crystal_size[1], pos[2])
                         
@@ -194,50 +199,70 @@ class Crystal_Lattice():
                            self.grid_crystal[neigh_idx] = Site("Empty",
                                 tuple(pos),
                                 self.activation_energies)
-
-
-
-            # Create labels for each possible migration pathway
+                     
+                    
+            # Step 3: Create labels for possible migration pathways  
             neighbors = self.structure.get_neighbors(self.structure[0], radius_neighbors)
             self.event_labels = {tuple(self.get_idx_coords(site.coords,self.basis_vectors) 
                                        - np.array(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))):i 
                             for i,site in enumerate(neighbors)}
             
-        
+            
+            # Step 4: Perform neighbor analysis
             # Use ProcessPoolExecutor to parallelize the loop
             start_time = time.perf_counter()
-            num_cores = concurrent.futures.ProcessPoolExecutor()._max_workers
-            grid_keys = list(self.grid_crystal.keys())
             
-            # Calculate batch size based on the number of keys
-            batch_size = len(grid_keys) // num_cores
-            batches = [grid_keys[i:i + batch_size] for i in range(0, len(grid_keys), batch_size)]
+            if use_parallel:
+                # Parallel execution
+                num_cores = self.get_num_cores()
+                grid_keys = list(self.grid_crystal.keys())
+                # Calculate batch size based on the number of keys
+                batch_size = len(grid_keys) // num_cores
+                batches = [grid_keys[i:i + batch_size] for i in range(0, len(grid_keys), batch_size)]
 
-            # Each process generates its dictionary 
-            results = []
-            with concurrent.futures.ProcessPoolExecutor() as executor:
-                results = list(executor.map(self.process_batch_site, batches))                
+                # Each process generates its dictionary 
+                results = []
+                with concurrent.futures.ProcessPoolExecutor() as executor:
+                    results = list(executor.map(self.process_batch_site, batches))                
     
-            # Combine results from all processes: Merge dictionaries and combine missing sites
-            for result in results:
-                sub_grid_crystal = result
-                self.grid_crystal.update(sub_grid_crystal)
-          
-            end_time = time.perf_counter()
-            
-            elapsed_time = end_time - start_time
-            print(f"Time neighbors: {elapsed_time:.4f} seconds")
+                # Combine results from all processes: Merge dictionaries and combine missing sites
+                for result in results:
+                    self.grid_crystal.update(result)
+                    
+            else:
+                # Sequential execution
+                for idx,site in self.grid_crystal.items(): 
+                    neighbors = self.structure.get_sites_in_sphere(site.position,radius_neighbors)
+                    neighbors = [neighbor for neighbor in neighbors if not np.allclose(neighbor.coords, site.position)]
+                    neighbors_positions = [neigh.coords for neigh in neighbors]
+                    neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
+                
 
-            
+                    site.neighbors_analysis(
+                        self.grid_crystal, neighbors_idx, neighbors_positions,
+                        self.crystal_size, self.event_labels, idx
+                        )
+                    
+                    
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            print(f"Time elapsed in neighbor analysis: {elapsed_time:.4f} seconds")
+
+    def get_num_cores(self):
+        return int(
+            os.environ.get('SLURM_CPUS_PER_TASK') or 
+            os.environ.get('PBS_NP') or 
+            os.cpu_count()
+        )        
                 
     def process_batch_site(self, batch):
 
         radius_neighbors = 3
         local_grid_crystal = {key:self.grid_crystal[key] for key in batch}
  
-
+        i = 0
         for idx,site in local_grid_crystal.items():
-
+            i+= 1
             neighbors = self.structure.get_sites_in_sphere(site.position,radius_neighbors)
             neighbors = [neighbor for neighbor in neighbors if not np.allclose(neighbor.coords, site.position)]
             neighbors_positions = [neigh.coords for neigh in neighbors]
@@ -249,95 +274,15 @@ class Crystal_Lattice():
                 self.crystal_size, self.event_labels, idx
             )
 
-
         return local_grid_crystal
                 
-            
-           
-    def crystal_grid_2(self):
-            radius_neighbors = 3
-            self.coord_cache = {}
-            
-            # np.linalg.solve --> To obtain the linear combination of the basis vector for the site coordinate
-            # We obtain integer idx
-            self.grid_crystal = {
-                self.get_idx_coords(site.coords,self.basis_vectors):Site("Empty",
-                    tuple(site.coords),
-                    self.activation_energies)
-                for site in self.structure
-            }
-            
-            # Search for missing sites before we start the neighbor analysis
-            for site in self.structure:
-                # idx = self.get_idx_coords(site.coords,self.basis_vectors)
-                # Neighbors for each idx in grid_crystal
-                neighbors = self.structure.get_neighbors(site,radius_neighbors)
-                neighbors_positions = [neigh.coords for neigh in neighbors]
-                neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
-
-                """
-                Handle missing neighbors
-                """
-                tol = 1e-6
     
-                # Some sites are not created with the dictionary comprenhension
-                # If the sites have neighbors that are within the crystal dimension range
-                # but not included, we included
-                for neigh_idx,pos in zip(neighbors_idx,neighbors_positions):
-                    
-                    
-                    if (neigh_idx not in self.grid_crystal) and (-tol <= pos[2] <= self.crystal_size[2] + tol): 
-                        # and (0 <= pos[1] <= self.crystal_size[1] + tol) and (0 <= pos[0] <= self.crystal_size[0] + tol)):
-                
-                        pos_aux = (pos[0] % self.crystal_size[0], pos[1] % self.crystal_size[1], pos[2])
-                        
-                        # If not in the boundary region, where we should apply periodic boundary conditions
-                        if tuple(pos) == pos_aux:
-                           self.grid_crystal[neigh_idx] = Site("Empty",
-                                tuple(pos),
-                                self.activation_energies)
-            
-            # Create labels for each possible migration pathway
-            neighbors = self.structure.get_neighbors(self.structure[0], radius_neighbors)
-            self.event_labels = {tuple(self.get_idx_coords(site.coords,self.basis_vectors) - np.array(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))):i 
-                            for i,site in enumerate(neighbors)}
-            
-
-
-            # Obtain the neighbors at each site
-            start_time = time.perf_counter()
-                
-            for idx,site in self.grid_crystal.items():
-
-                neighbors = self.structure.get_sites_in_sphere(site.position,radius_neighbors)
-                neighbors = [neighbor for neighbor in neighbors if not np.allclose(neighbor.coords, site.position)]
-                neighbors_positions = [neigh.coords for neigh in neighbors]
-                neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
-            
-
-                site.neighbors_analysis(
-                    self.grid_crystal, neighbors_idx, neighbors_positions,
-                    self.crystal_size, self.event_labels, idx
-                    )
-                
-                # if (i+1)%10 == 0:
-                #     print('Sites analyzed: ',str(i+1),'/',str(len(self.structure)),"| ",100*(i+1)/len(self.structure),' %')
-
-            print('Neighbor analysis finished')                            
-            end_time = time.perf_counter()
-            
-            elapsed_time = end_time - start_time
-            print(f"Time neighbors: {elapsed_time:.4f} seconds")
-                    
-                            
- 
-                
-
     def get_idx_coords(self, coords,basis_vectors):
             # Check if the coordinates are already in the cache
             coords_tuple = tuple(coords)
             if coords_tuple not in self.coord_cache:
                 # Calculate and cache the rounded coordinates
+                # np.linalg.solve --> To obtain the linear combination of the basis vector for the site coordinate
                 idx_coords = np.linalg.solve(basis_vectors.transpose(), coords)
                 idx_coords = tuple(np.round(idx_coords).astype(int))
                 self.coord_cache[coords_tuple] = idx_coords

@@ -50,7 +50,7 @@ def initialization(n_sim,save_data):
 #         
 # =============================================================================
         sticking_coeff = 1
-        partial_pressure = 0.1 # (Pa = N m^-2 = kg m^-1 s^-2)
+        partial_pressure = 1 # (Pa = N m^-2 = kg m^-1 s^-2)
         # p = 0.1 - 10 typical values 
         # T = 573 + n_sim * 100 # (K)
         temp = 600
@@ -64,8 +64,9 @@ def initialization(n_sim,save_data):
 # =============================================================================
         #id_material_COD = 5000216 # Cu
         id_material_Material_Project = "mp-30" # Cu
-        crystal_size = (20,20,20) # (angstrom (Å))
+        crystal_size = (50,50,50) # (angstrom (Å))
         orientation = ['001','111']
+        use_parallel = None
 
         # Create a config.json file with the API key -> To avoid uploading to Github
         with open('config.json') as config_file:
@@ -80,7 +81,7 @@ def initialization(n_sim,save_data):
             formula = material_summary[0].formula_pretty
 
             
-        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key]
+        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel]
         
 # =============================================================================
 #             Superbasin parameters

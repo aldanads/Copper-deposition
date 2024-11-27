@@ -30,29 +30,6 @@ Profiling - Reference: Grown 0.4 nm in a 2x2nm box
     12054  115.540    0.010 3761.155    0.312 superbasin.py:43(trans_absorbing_states)
   3820373  115.057    0.000  164.150    0.000 crystal_lattice.py:322(available_adsorption_sites)
 128842061  112.088    0.000  184.653    0.000 {method 'update' of 'set' objects}
-
-         9034848122 function calls (9028225809 primitive calls) in 13273.455 seconds
-
-   Ordered by: internal time
-   List reduced from 13082 to 15 due to restriction <15>
-
-   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
- 90864365 1873.830    0.000 2201.324    0.000 crystal_lattice.py:321(available_adsorption_sites)
-1502205239 1433.478    0.000 1433.478    0.000 Site.py:143(<lambda>)
-591363342 1429.986    0.000 4026.251    0.000 {built-in method builtins.sorted}
- 99657161 1097.536    0.000 4026.995    0.000 Site.py:183(available_migrations)
- 90864365  817.853    0.000 4350.333    0.000 Site.py:96(supported_by)
- 90864365  810.481    0.000 1978.978    0.000 Site.py:354(detect_planes)
-407948350  668.110    0.000 3291.556    0.000 Site.py:116(calculate_clustering_energy)
-333618222  427.285    0.000  427.285    0.000 Site.py:359(<lambda>)
-  4642156  426.719    0.000 11562.122    0.002 crystal_lattice.py:658(update_sites)
-2124822805/2124814785  413.282    0.000  413.287    0.000 {built-in method builtins.len}
-353878868  390.040    0.000  390.040    0.000 Site.py:405(<lambda>)
- 99657161  383.317    0.000  557.904    0.000 Site.py:447(transition_rates)
-353878868  345.214    0.000  345.214    0.000 Site.py:125(<lambda>)
- 97655938  319.262    0.000  319.284    0.000 {built-in method numpy.array}
-    13463  238.244    0.018  520.361    0.039 superbasin.py:107(transition_matrix)
-
 """
 
 
@@ -89,7 +66,9 @@ def main():
             i = 0
             while System_state.thickness < thickness_limit:
                 i+=1
+                
                 # return System_state
+                
                 System_state,KMC_time_step = KMC(System_state,rng)
 
 
