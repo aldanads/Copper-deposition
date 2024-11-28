@@ -50,7 +50,7 @@ def initialization(n_sim,save_data):
 #         
 # =============================================================================
         sticking_coeff = 1
-        partial_pressure = 1 # (Pa = N m^-2 = kg m^-1 s^-2)
+        partial_pressure = 10 # (Pa = N m^-2 = kg m^-1 s^-2)
         # p = 0.1 - 10 typical values 
         # T = 573 + n_sim * 100 # (K)
         temp = 600
@@ -64,7 +64,7 @@ def initialization(n_sim,save_data):
 # =============================================================================
         #id_material_COD = 5000216 # Cu
         id_material_Material_Project = "mp-30" # Cu
-        crystal_size = (50,50,50) # (angstrom (Å))
+        crystal_size = (20,20,20) # (angstrom (Å))
         orientation = ['001','111']
         use_parallel = None
 
@@ -89,7 +89,7 @@ def initialization(n_sim,save_data):
 # =============================================================================
         n_search_superbasin = 3 # If the time step is very small during 10 steps, search for superbasin
         time_step_limits = 1e-8 # Time needed for efficient evolution of the system
-        E_min = 0.5
+        E_min = 0.6
         superbasin_parameters = [n_search_superbasin, time_step_limits,E_min]
 # =============================================================================
 #       Different surface Structures- fcc Metals
@@ -124,8 +124,8 @@ def initialization(n_sim,save_data):
 #       "Transition-pathway models of atomic diffusion on fcc metal surfaces. II. Stepped surfaces." 
 #       Physical Review B 76, no. 24 (2007): 245408.
 # =============================================================================
-        select_dataset = 0   
-        Act_E_dataset = ['TaN','Ru25','Ru50','test','homoepitaxial']  
+        select_dataset = 4   
+        Act_E_dataset = ['TaN','Ru25','Ru50','homoepitaxial','template_upward']  
         
         
         # Retrieve the activation energies
@@ -148,14 +148,28 @@ def initialization(n_sim,save_data):
         E_mig_sub = E_dataset[0] # (eV)
         E_mig_upward_subs_layer111 = E_dataset[1]
         E_mig_downward_layer111_subs = E_dataset[2]
-        E_mig_upward_layer1_layer2_111 = E_dataset[3]
+        E_mig_upward_layer1_layer2_111 = E_dataset[3] + 0.1 * n_sim
         E_mig_downward_layer2_layer1_111 = E_dataset[4]
-        E_mig_upward_subs_layer100 = E_dataset[5]
+        E_mig_upward_subs_layer100 = E_dataset[5] 
         E_mig_downward_layer100_subs = E_dataset[6]
         E_mig_111_terrace_Cu = E_dataset[7]
-        E_mig_100_terrace_Cu = E_dataset[8]
+        E_mig_100_terrace_Cu = E_dataset[8] + 0.1 * n_sim
         E_mig_edge_100 = E_dataset[9]
         E_mig_edge_111 = E_dataset[10]
+        
+        print(E_dataset)
+        quit()
+        # =============================================================================
+        #     Papanicolaou, N. 1, & Evangelakis, G. A. (n.d.). 
+        #     COMPARISON OF DIFFUSION PROCESSES OF Cu AND Au ADA TOMS ON THE Cu(1l1) SURFACE BY MOLECULAR DYNAMICS.
+        #     
+        #     Mińkowski, Marcin, and Magdalena A. Załuska-Kotur. 
+        #     "Diffusion of Cu adatoms and dimers on Cu (111) and Ag (111) surfaces." 
+        #     Surface Science 642 (2015): 22-32. 10.1016/j.susc.2015.07.026
+        # =============================================================================
+
+        # Binding energy | Desorption energy: https://doi.org/10.1039/D1SC04708F
+        binding_energy = E_dataset[-2] - 0.1 * n_sim
 
              
 # =============================================================================
@@ -173,19 +187,7 @@ def initialization(n_sim,save_data):
         clustering_energy = E_dataset[-1]
         E_clustering = [0,0,clustering_energy * 2,clustering_energy * 3,clustering_energy * 4,clustering_energy * 5,clustering_energy * 6,clustering_energy * 7,clustering_energy * 8,clustering_energy * 9,clustering_energy * 10,clustering_energy * 11,clustering_energy * 12,clustering_energy * 13] 
 
-    
 
-# =============================================================================
-#     Papanicolaou, N. 1, & Evangelakis, G. A. (n.d.). 
-#     COMPARISON OF DIFFUSION PROCESSES OF Cu AND Au ADA TOMS ON THE Cu(1l1) SURFACE BY MOLECULAR DYNAMICS.
-#     
-#     Mińkowski, Marcin, and Magdalena A. Załuska-Kotur. 
-#     "Diffusion of Cu adatoms and dimers on Cu (111) and Ag (111) surfaces." 
-#     Surface Science 642 (2015): 22-32. 10.1016/j.susc.2015.07.026
-# =============================================================================
-
-    # Binding energy | Desorption energy: https://doi.org/10.1039/D1SC04708F
-        binding_energy = E_dataset[-2]
         Act_E_list = [E_mig_sub,
                       E_mig_upward_subs_layer111,E_mig_downward_layer111_subs,
                       E_mig_upward_layer1_layer2_111,E_mig_downward_layer2_layer1_111,
@@ -202,6 +204,13 @@ def initialization(n_sim,save_data):
 
         System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters)
 
+        # The minimum energy to select transition pathways to create a superbasin should be smaller
+        # than the adsorption energy
+        if superbasin_parameters[2] > System_state.Act_E_ad:  # Replace with your actual range
+            raise ValueError("Minimum energy for superbasin is greater than adsorption energy.")
+            import sys
+            sys.exit(1)
+            
         # Maximum probability per site for deposition to establish a timestep limits
         # The maximum timestep is that one that occupy X% of the site during the deposition process
         P_limits = 0.02

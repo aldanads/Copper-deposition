@@ -2,13 +2,25 @@
   "elements": [
     {
       "name": "Ag",
-      "activation_energies": {
-        "type1_surface1": 0.95,
-        "type1_surface2": 1.05,
-        "type2_surface1": 1.10,
-        "type2_surface2": 1.20,
-        "type3_surface1": 1.30
-      }
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": 0.064,
+        "upward_substrate_to_111": 0.313,
+        "downward_111_to_substrate": 0.095,
+        "upward_111": 0.313,
+        "downward_111": 0.095,
+        "upward_substrate_to_100": 0.528,
+        "downward_100_to_substrate": 0.318,
+        "surface_111": 0.043,
+        "surface_100": 0.477,  
+        "edge_100": 0.245,      
+        "edge_111": 0.309,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": 0,
+        "Coordination_number_contribution": -0.15,
+        "Reference": ["10.1103/PhysRevMaterials.2.063401"],
+        "Description": "Ag film growing in 111 direction (homoepitaxial)"
+}
     },
     {
       "name": "Cu",
@@ -90,6 +102,25 @@
         "Reference": ["10.1039/d1sc04708f","10.1039/c8tc06118a","10.1103/PhysRevB.76.245407","10.1103/PhysRevB.76.245408"],
         "Description": "Cu film growing in 111 direction on Ru50-TaN substrate (heteroepitaxial)"
 
+      },
+      "activation_energies_111_template_upward (eV)": {
+        "plane_substrate": 0.5,
+        "upward_substrate_to_111": 0.05,
+        "downward_111_to_substrate": 0.095,
+        "upward_111": 0.05,
+        "downward_111": 0.095,
+        "upward_substrate_to_100": 0.15,
+        "downward_100_to_substrate": 0.318,
+        "surface_111": 0.043,
+        "surface_100": 0.16,  
+        "edge_100": 0.245,      
+        "edge_111": 0.309,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": 0,
+        "Coordination_number_contribution": -0.15,
+        "Reference": [],
+        "Description": "Cu template for varying activation energies for upward migration. Assuming easy migration on substrate"
       }
     },
     {
