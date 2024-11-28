@@ -156,9 +156,7 @@ def initialization(n_sim,save_data):
         E_mig_100_terrace_Cu = E_dataset[8] + 0.1 * n_sim
         E_mig_edge_100 = E_dataset[9]
         E_mig_edge_111 = E_dataset[10]
-        
-        print(E_dataset)
-        quit()
+
         # =============================================================================
         #     Papanicolaou, N. 1, & Evangelakis, G. A. (n.d.). 
         #     COMPARISON OF DIFFUSION PROCESSES OF Cu AND Au ADA TOMS ON THE Cu(1l1) SURFACE BY MOLECULAR DYNAMICS.
