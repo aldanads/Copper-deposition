@@ -202,8 +202,6 @@ def initialization(n_sim,save_data,ovito_file):
         System_state = initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
               ovito_file,superbasin_parameters,save_data)  
         
-        print(System_state.activation_energies)
-        quit()
 
         # The minimum energy to select transition pathways to create a superbasin should be smaller
         # than the adsorption energy
@@ -291,7 +289,6 @@ def initialize_grid_crystal(filename,crystal_features,experimental_conditions,Ac
             
             System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
 
-            print(System_state.activation_energies)
         elif pkl_file_with_ext.exists():
             print('Loading grid_crystal.pkl')
             # Load from .pkl
@@ -364,42 +361,8 @@ def save_simulation(files_copy,dst,n_sim):
     Results = SimulationResults(excel_filename)
         
     return paths, Results
-    """
-    if platform.system() == 'Windows':
-        parent_dir = 'Sim_'+str(n_sim)+'\\'
-        os.makedirs(dst+parent_dir) 
-        dst = dst+parent_dir
-        program_directory = 'Program\\'
-        data_directoy = 'Crystal evolution\\'
-        current_directory = os.path.dirname(__file__)
 
-        
-    elif platform.system() == 'Linux':
-        parent_dir = 'Sim_'+str(n_sim)+'/'
-        os.makedirs(dst+parent_dir) 
-        dst = dst+parent_dir
-        program_directory = 'Program/'
-        data_directoy = 'Crystal evolution/'
-        current_directory = os.path.dirname(__file__)
 
-    os.makedirs(dst + program_directory)
-    os.makedirs(dst + data_directoy)
-    paths = {'data': dst + data_directoy, 'program': dst + program_directory,'results': dst}
-
-    
-
-    for file in files_copy:
-        # Utilizing os.path.join is the best option, because it works in Windows and Unix
-        # and put the correct separators
-        source_file = os.path.join(current_directory, file)
-        destination_file = os.path.join(paths['program'], file)
-        shutil.copyfile(source_file, destination_file)
-        
-    excel_filename = dst + 'Results.csv'
-    Results = SimulationResults(excel_filename)
-        
-    return paths,Results
-    """
 def save_variables(paths,variables,filename):
     
     
@@ -422,30 +385,7 @@ def save_variables(paths,variables,filename):
         with open(file_path, 'wb') as file:
             pickle.dump(variables, file)
     
-    # if platform.system() == 'Windows': # When running in laptop
 
-    #     
-    
-    #     my_shelf = shelve.open(paths+filename,'n') # 'n' for new
-        
-    #     for key in variables:
-    #         my_shelf[key] = variables[key]
-    
-    #     my_shelf.close()
-
-    # elif platform.system() == 'Linux': # HPC works on Linux
-    
-    #     import pickle
-    
-    #     filename += '.pkl'    
-    
-    #     # Open a file and use dump()
-    #     with open(paths+filename, 'wb') as file:
-              
-    #         # A new file will be created
-    #         pickle.dump(variables,file)
-        
-            
 class SimulationResults:
     def __init__(self, excel_filename):
         self.excel_filename = excel_filename

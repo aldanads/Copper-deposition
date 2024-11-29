@@ -68,9 +68,7 @@ def main():
             i = 0
             while System_state.thickness < thickness_limit:
                 i+=1
-                
-                # return System_state
-                
+                                
                 System_state,KMC_time_step = KMC(System_state,rng)
 
 

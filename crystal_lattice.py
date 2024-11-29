@@ -33,6 +33,8 @@ from multiprocessing import Manager
 
 import json
 import os
+from pathlib import Path
+
 
 # Rotation of a vector - Is copper growing in [111] direction?
 # The basis vector is in [001]
@@ -938,7 +940,8 @@ class Crystal_Lattice():
             if path == '':
                 plt.show()
             else:
-                plt.savefig(path+str(i)+'_t(s) = '+str(round(self.time,5))+' .png', dpi = 300)
+                fig_filename = path / f"{i}_t(s) = {round(self.time, 5)} .png"
+                plt.savefig(fig_filename, dpi = 300)
                 plt.clf()
             plt.show()
             
@@ -976,12 +979,13 @@ class Crystal_Lattice():
             
             # Create a pipeline, set the source and insert it into the scene:
             pipeline = Pipeline(source = StaticSource(data = data))
-
-            export_file(data, path+str(i)+".dump", "lammps/dump",
+            base_path = Path(path)
+            dump_file_path = base_path / f"{i}.dump"
+            export_file(data, dump_file_path, "lammps/dump",
                 columns = ["Particle Identifier","Position.X", "Position.Y", "Position.Z","Particle Type"])
             
             # Add the time step as a comment at the beginning of the dump file
-            with open(path + str(i) + ".dump", 'r+') as dump_file:
+            with open(dump_file_path, 'r+') as dump_file:
                 content = dump_file.read()
                 dump_file.seek(0, 0)
                 dump_file.write(f"# Time: {self.time:.10f}\n" + content)
@@ -989,7 +993,7 @@ class Crystal_Lattice():
             
             # Write the metadata file
             if i == 1:
-                
+                metadata_path = base_path / "metadata.json"
                 metadata_species = {species_mapping[specie]: specie for specie in species_mapping}
                 metadata_experimental_conditions = {'Experiment':self.experiment,
                                                     'Temperature':self.temperature,
@@ -1002,7 +1006,7 @@ class Crystal_Lattice():
                                              'Time limitation to search superbasin': self.time_step_limits,
                                              'Minimum activation energy for building superbasins':self.E_min,
                                              'Activation energy set':self.activation_energies}
-                with open(path + "metadata.json", 'w') as metadata_file:
+                with open(metadata_path, 'w') as metadata_file:
                     json.dump({
                         "experimental_conditions": metadata_experimental_conditions,
                         "species": metadata_species,
