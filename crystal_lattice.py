@@ -64,9 +64,7 @@ class Crystal_Lattice():
         self.list_time = []
         
         self.lattice_model()
-        if grid_crystal == None:
-            self.crystal_grid(use_parallel)
-        else: self.grid_crystal = grid_crystal
+        self.crystal_grid(grid_crystal,use_parallel)
                 
         # Events corresponding to migrations + superbasin migration (+1) + deposition (+1)
         # self.num_event = len(self.latt.get_neighbor_positions((0,0,0))) + 2
@@ -155,8 +153,9 @@ class Crystal_Lattice():
             
         self.crystal_size = self.structure.lattice.abc
             
-    def crystal_grid(self,use_parallel=None):
+    def crystal_grid(self,grid_crystal,use_parallel=None):
         
+        if grid_crystal == None:
             # Set default parallelization based on system size and cores
             if use_parallel is None:
                 use_parallel = len(self.structure) > 1600
@@ -249,6 +248,13 @@ class Crystal_Lattice():
             end_time = time.perf_counter()
             elapsed_time = end_time - start_time
             print(f"Time elapsed in neighbor analysis: {elapsed_time:.4f} seconds")
+            
+        else:
+            
+            self.grid_crystal = grid_crystal
+            
+            for site in self.grid_crystal.values():
+                site.Act_E_list = self.activation_energies
 
     def get_num_cores(self):
         return int(

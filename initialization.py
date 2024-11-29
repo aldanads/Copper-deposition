@@ -66,7 +66,7 @@ def initialization(n_sim,save_data,ovito_file):
 # =============================================================================
         #id_material_COD = 5000216 # Cu
         id_material_Material_Project = "mp-30" # Cu
-        crystal_size = (20,20,20) # (angstrom (Å))
+        crystal_size = (100,100,100) # (angstrom (Å))
         orientation = ['001','111']
         use_parallel = None
 
@@ -220,6 +220,7 @@ def initialization(n_sim,save_data,ovito_file):
             
             System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
 
+            print(System_state.activation_energies)
         elif pkl_file_with_ext.exists():
             print('Loading grid_crystal.pkl')
             # Load from .pkl
