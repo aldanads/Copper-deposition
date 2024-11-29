@@ -40,12 +40,14 @@ from KMC import KMC
 import numpy as np
 import time
 
-save_data = False
+save_data = True
+ovito_file = True
+
 def main():
 
-    for n_sim in range(0,1):
+    for n_sim in range(0,5):
         
-        System_state,rng,paths,Results = initialization(n_sim,save_data)
+        System_state,rng,paths,Results = initialization(n_sim,save_data,ovito_file)
         System_state.add_time()
     
         System_state.plot_crystal(45,45,paths['data'],0)    
@@ -138,7 +140,8 @@ def main():
         
         # Variables to save
         variables = {'System_state' : System_state}
-        if save_data: save_variables(paths['program'],variables)
+        filename = 'variables'
+        if save_data: save_variables(paths['program'],variables,filename)
 
     return System_state
 

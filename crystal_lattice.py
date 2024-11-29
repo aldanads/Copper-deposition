@@ -41,7 +41,7 @@ import os
 
 class Crystal_Lattice():
     
-    def __init__(self,crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters):
+    def __init__(self,crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal = None):
         
         self.id_material = crystal_features[0]
         self.crystal_size = crystal_features[1]
@@ -64,7 +64,9 @@ class Crystal_Lattice():
         self.list_time = []
         
         self.lattice_model()
-        self.crystal_grid(use_parallel)
+        if grid_crystal == None:
+            self.crystal_grid(use_parallel)
+        else: self.grid_crystal = grid_crystal
                 
         # Events corresponding to migrations + superbasin migration (+1) + deposition (+1)
         # self.num_event = len(self.latt.get_neighbor_positions((0,0,0))) + 2

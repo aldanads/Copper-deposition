@@ -12,3 +12,4 @@ ovito_files.py
 profile_output.prof
 config.json
 Test_pymatgen.py
+*grid_crystal*

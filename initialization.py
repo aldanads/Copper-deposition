@@ -13,9 +13,13 @@ from crystal_lattice import Crystal_Lattice
 from superbasin import Superbasin
 from pymatgen.ext.matproj import MPRester
 import json
+from pathlib import Path
+
+import pickle
+import shelve
 
 
-def initialization(n_sim,save_data):
+def initialization(n_sim,save_data,ovito_file):
     
     seed = 1
     # Random seed as time
@@ -29,9 +33,9 @@ def initialization(n_sim,save_data):
                       'balanced_tree.py','analysis.py','superbasin.py','activation_energies_set.json']
         
         if platform.system() == 'Windows': # When running in laptop
-            dst = r'\\FS1\Docs2\samuel.delgado\My Documents\Publications\Material deposition exploration\Simulations\Test\\'
+            dst = Path(r'\\FS1\Docs2\samuel.delgado\My Documents\Publications\Material deposition exploration\Simulations\Test')
         elif platform.system() == 'Linux': # HPC works on Linux
-            dst = r'/sfiwork/samuel.delgado/Copper_deposition/Varying_substrate/batch_simulation/annealing/TaN/T300/'
+            dst = Path(r'/sfiwork/samuel.delgado/Copper_deposition/Varying_substrate/batch_simulation/annealing/TaN/T300/')
             
         paths,Results = save_simulation(files_copy,dst,n_sim) # Create folders and python files
         
@@ -39,8 +43,6 @@ def initialization(n_sim,save_data):
         paths = {'data': ''}
         Results = []
         
-    ovito_file = False
-
     experiments = ['deposition','annealing']
     experiment = experiments[0]
 
@@ -198,9 +200,48 @@ def initialization(n_sim,save_data):
 
 # =============================================================================
 #     Initialize the crystal grid structure - nodes with empty spaces
-# =============================================================================
+# =============================================================================          
+        # If grid_crystal exists: we loaded
+        # Otherwise: we create it (very expensive for larger systems ~100 anstrongs)
+        filename = 'grid_crystal'
+        current_directory = Path(__file__).parent
+        # Check for .dat and .pkl extensions       
+        # Dynamically append extensions for checks
+        dat_file = current_directory / filename
+        dat_file_with_ext = dat_file.with_suffix('.dat')
+        pkl_file_with_ext = dat_file.with_suffix('.pkl')
+        
+        if dat_file_with_ext.exists():
+            print('Loading grid_crystal.dat')
+            # Load from .dat
+            dat_file = current_directory / f"{filename}"
+            with shelve.open(dat_file) as my_shelf:
+                grid_crystal = my_shelf.get(filename)
+            
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
 
-        System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters)
+        elif pkl_file_with_ext.exists():
+            print('Loading grid_crystal.pkl')
+            # Load from .pkl
+            with open(pkl_file_with_ext, 'rb') as file:
+                # Call load method to deserialze
+                data = pickle.load(file)
+            grid_crystal = data.get(filename)
+            
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
+
+            
+        else:
+            # Create new grid_crystal
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters)
+            
+            # Save the newly created data
+            if save_data: 
+                save_variables(current_directory, {filename : System_state.grid_crystal}, filename)
+            
+
+        
+        quit()
 
         # The minimum energy to select transition pathways to create a superbasin should be smaller
         # than the adsorption energy
@@ -242,7 +283,6 @@ def initialization(n_sim,save_data):
             
     elif experiment == 'annealing':
         
-        import pickle
         path = r'/sfihome/samuel.delgado/Copper_deposition/Varying_substrate/annealing/TaN/T500/'
         filename = path + 'variables.pkl'
         
@@ -285,7 +325,39 @@ def search_superbasin(System_state):
 
 def save_simulation(files_copy,dst,n_sim):
     
-
+    # Create the simulation directory
+    parent_dir = f'Sim_{n_sim}'
+    sim_dir = dst / parent_dir
+    sim_dir.mkdir(parents=True, exist_ok=True)  # Create parent directories if they don't exist
+    
+    # Define subdirectories
+    program_directory = sim_dir / 'Program'
+    data_directory = sim_dir / 'Crystal evolution'
+    
+    # Create directories
+    program_directory.mkdir(parents=True, exist_ok=True)
+    data_directory.mkdir(parents=True, exist_ok=True)
+    
+    # Return paths as a dictionary
+    paths = {
+        'data': data_directory,
+        'program': program_directory,
+        'results': sim_dir
+    }
+    
+    # Copy the files
+    current_directory = Path(__file__).parent  # Get the current directory of the script
+    for file in files_copy:
+        source_file = current_directory / file  # Path of the source file
+        destination_file = paths['program'] / file  # Path for the destination file
+        shutil.copyfile(source_file, destination_file)  # Copy the file
+    
+    # Create and return results object
+    excel_filename = paths['results'] / 'Results.csv'  # Define the path to the results CSV file
+    Results = SimulationResults(excel_filename)
+        
+    return paths, Results
+    """
     if platform.system() == 'Windows':
         parent_dir = 'Sim_'+str(n_sim)+'\\'
         os.makedirs(dst+parent_dir) 
@@ -305,8 +377,9 @@ def save_simulation(files_copy,dst,n_sim):
 
     os.makedirs(dst + program_directory)
     os.makedirs(dst + data_directoy)
-    
     paths = {'data': dst + data_directoy, 'program': dst + program_directory,'results': dst}
+
+    
 
     for file in files_copy:
         # Utilizing os.path.join is the best option, because it works in Windows and Unix
@@ -319,33 +392,51 @@ def save_simulation(files_copy,dst,n_sim):
     Results = SimulationResults(excel_filename)
         
     return paths,Results
+    """
+def save_variables(paths,variables,filename):
+    
+    
+    # Convert paths to Path object if it's a string (if it's not already)
+    paths = Path(paths)  # Ensure paths is a Path object
+    
+    # Full file path
+    file_path = paths / filename
 
-def save_variables(paths,variables):
-    
-    
-    if platform.system() == 'Windows': # When running in laptop
+    if platform.system() == 'Windows':  # When running on Windows
+        with shelve.open(str(file_path), 'n') as my_shelf:
+            for key, value in variables.items():
+                my_shelf[key] = value
 
-        import shelve
+    elif platform.system() == 'Linux':  # When running on Linux
+        filename += '.pkl'
+        file_path = file_path.with_name(filename)  # Ensure the filename ends with .pkl
+
+        # Open the file and use pickle.dump()
+        with open(file_path, 'wb') as file:
+            pickle.dump(variables, file)
     
-        filename = 'variables'
-        my_shelf = shelve.open(paths+filename,'n') # 'n' for new
+    # if platform.system() == 'Windows': # When running in laptop
+
+    #     
+    
+    #     my_shelf = shelve.open(paths+filename,'n') # 'n' for new
         
-        for key in variables:
-            my_shelf[key] = variables[key]
+    #     for key in variables:
+    #         my_shelf[key] = variables[key]
     
-        my_shelf.close()
+    #     my_shelf.close()
 
-    elif platform.system() == 'Linux': # HPC works on Linux
+    # elif platform.system() == 'Linux': # HPC works on Linux
     
-        import pickle
+    #     import pickle
     
-        filename = 'variables.pkl'    
+    #     filename += '.pkl'    
     
-        # Open a file and use dump()
-        with open(paths+filename, 'wb') as file:
+    #     # Open a file and use dump()
+    #     with open(paths+filename, 'wb') as file:
               
-            # A new file will be created
-            pickle.dump(variables,file)
+    #         # A new file will be created
+    #         pickle.dump(variables,file)
         
             
 class SimulationResults:
