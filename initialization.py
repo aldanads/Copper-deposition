@@ -66,7 +66,7 @@ def initialization(n_sim,save_data,ovito_file):
 # =============================================================================
         #id_material_COD = 5000216 # Cu
         id_material_Material_Project = "mp-30" # Cu
-        crystal_size = (100,100,100) # (angstrom (Å))
+        crystal_size = (20,20,20) # (angstrom (Å))
         orientation = ['001','111']
         use_parallel = None
 
@@ -198,50 +198,11 @@ def initialization(n_sim,save_data,ovito_file):
         
 
 
-# =============================================================================
-#     Initialize the crystal grid structure - nodes with empty spaces
-# =============================================================================          
-        # If grid_crystal exists: we loaded
-        # Otherwise: we create it (very expensive for larger systems ~100 anstrongs)
         filename = 'grid_crystal'
-        current_directory = Path(__file__).parent
-        # Check for .dat and .pkl extensions       
-        # Dynamically append extensions for checks
-        dat_file = current_directory / filename
-        dat_file_with_ext = dat_file.with_suffix('.dat')
-        pkl_file_with_ext = dat_file.with_suffix('.pkl')
+        System_state = initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
+              ovito_file,superbasin_parameters,save_data)  
         
-        if dat_file_with_ext.exists():
-            print('Loading grid_crystal.dat')
-            # Load from .dat
-            dat_file = current_directory / f"{filename}"
-            with shelve.open(dat_file) as my_shelf:
-                grid_crystal = my_shelf.get(filename)
-            
-            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
-
-            print(System_state.activation_energies)
-        elif pkl_file_with_ext.exists():
-            print('Loading grid_crystal.pkl')
-            # Load from .pkl
-            with open(pkl_file_with_ext, 'rb') as file:
-                # Call load method to deserialze
-                data = pickle.load(file)
-            grid_crystal = data.get(filename)
-            
-            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
-
-            
-        else:
-            # Create new grid_crystal
-            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters)
-            
-            # Save the newly created data
-            if save_data: 
-                save_variables(current_directory, {filename : System_state.grid_crystal}, filename)
-            
-
-        
+        print(System_state.activation_energies)
         quit()
 
         # The minimum energy to select transition pathways to create a superbasin should be smaller
@@ -306,8 +267,53 @@ def initialization(n_sim,save_data,ovito_file):
 
     return System_state,rng,paths,Results
 
+    # =============================================================================
+    #     Initialize the crystal grid structure - nodes with empty spaces
+    # =============================================================================    
+def initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
+    ovito_file,superbasin_parameters,save_data):
+      
+        # If grid_crystal exists: we loaded
+        # Otherwise: we create it (very expensive for larger systems ~100 anstrongs)
+        current_directory = Path(__file__).parent
+        # Check for .dat and .pkl extensions       
+        # Dynamically append extensions for checks
+        dat_file = current_directory / filename
+        dat_file_with_ext = dat_file.with_suffix('.dat')
+        pkl_file_with_ext = dat_file.with_suffix('.pkl')
+        
+        if dat_file_with_ext.exists():
+            print('Loading grid_crystal.dat')
+            # Load from .dat
+            dat_file = current_directory / f"{filename}"
+            with shelve.open(dat_file) as my_shelf:
+                grid_crystal = my_shelf.get(filename)
+            
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
 
+            print(System_state.activation_energies)
+        elif pkl_file_with_ext.exists():
+            print('Loading grid_crystal.pkl')
+            # Load from .pkl
+            with open(pkl_file_with_ext, 'rb') as file:
+                # Call load method to deserialze
+                data = pickle.load(file)
+            grid_crystal = data.get(filename)
+            
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
 
+            
+        else:
+            # Create new grid_crystal
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters)
+            
+            # Save the newly created data
+            if save_data: 
+                save_variables(current_directory, {filename : System_state.grid_crystal}, filename)
+
+        return System_state
+        
+        
 def search_superbasin(System_state):
           
     # We need a deepcopy? System_state.sites_occupied will be modified on site
