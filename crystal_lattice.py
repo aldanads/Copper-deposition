@@ -4,7 +4,7 @@ Created on Wed Jan 10 15:19:06 2024
 
 @author: samuel.delgado
 """
-import lattpy as lp # https://lattpy.readthedocs.io/en/latest/tutorial/finite.html#position-and-neighbor-data
+# import lattpy as lp # https://lattpy.readthedocs.io/en/latest/tutorial/finite.html#position-and-neighbor-data
 import matplotlib.pyplot as plt
 from Site import Site,Island
 from scipy import constants
@@ -22,14 +22,8 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.core.periodic_table import Element
 
-from ovito.data import *
-from ovito.pipeline import *
-from ovito.vis import *
-from ovito.io import export_file
 from concurrent.futures import ThreadPoolExecutor
-
 import concurrent.futures
-from multiprocessing import Manager
 
 import json
 import os
@@ -43,7 +37,7 @@ from pathlib import Path
 
 class Crystal_Lattice():
     
-    def __init__(self,crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal = None):
+    def __init__(self,crystal_features,experimental_conditions,Act_E_list,lammps_file,superbasin_parameters,grid_crystal = None):
         
         self.id_material = crystal_features[0]
         self.crystal_size = crystal_features[1]
@@ -72,7 +66,6 @@ class Crystal_Lattice():
         # self.num_event = len(self.latt.get_neighbor_positions((0,0,0))) + 2
         self.num_event = len(self.structure.get_neighbors(self.structure[0],3)) + 2
 
-        # self.calculate_crystallographic_planes()
         self.Wulff_Shape()
         self.create_edges()
 
@@ -88,23 +81,8 @@ class Crystal_Lattice():
         
         self.update_sites(update_specie_events,update_supp_av)
 
+        self.lammps_file = lammps_file
 
-        
-        # ovito_file = True - Create LAAMPS files
-        # ovito_file = False - Create PNGs
-        self.ovito_file = ovito_file
-        if ovito_file == True:
-            # Create the simulation box:
-            cell = SimulationCell(pbc = (False, False, False))
-            cell[...] = [[self.crystal_size[0],0,0,0],
-                          [0,self.crystal_size[1],0,0],
-                          [0,0,self.crystal_size[2],0]]
-            cell.vis.line_width = 0.1
-            
-            self.cell = cell
-        
-    
-    # Model with all the possible lattice points
     
     def lattice_model(self):
 
@@ -901,7 +879,7 @@ class Crystal_Lattice():
         
     def plot_crystal(self,azim = 60,elev = 45,path = '',i = 0):
         
-        if self.ovito_file == False:
+        if self.lammps_file == False:
             nr = 1
             nc = 2
             fig = plt.figure(constrained_layout=True,figsize=(15, 8),dpi=300)
@@ -950,45 +928,25 @@ class Crystal_Lattice():
             species_mapping = {self.chemical_specie: 1}  # Example species mapping
             sites_occupied_cart = [(self.idx_to_cart(site)) for site in self.sites_occupied]
             species_ids = [species_mapping.get(self.grid_crystal[site].chemical_specie) for site in self.sites_occupied]
-            species = [self.grid_crystal[site].chemical_specie for site in self.sites_occupied]
-
             # Define particle IDs
             particle_ids = list(range(1, len(sites_occupied_cart) + 1))  # Unique IDs for each particle
-
-            time_step=round(self.time,5)
             
-            # Create the data collection containing a Particles object:
-            data = DataCollection()
-            particles = data.create_particles()
-            
-            particles.create_property('Particle Identifier', data=particle_ids)
-            
-            # Create the particle position property:
-            pos_prop = particles.create_property('Position', data=sites_occupied_cart)
-            
-            # Create the particle species property:
-            type_prop = particles.create_property('Particle Type', data=species_ids)
-            for specie in species:
-                type_prop.types.append(ParticleType(id = species_mapping[specie], name = specie, color = (0.0,1.0,0.0)))
-            
-            #species_prop = particles.create_property('Name', data=species)
-            
-            # Add the time step as a global attribute:
-            data.attributes['TimeStep'] = i
-            data.objects.append(self.cell)
-            
-            # Create a pipeline, set the source and insert it into the scene:
-            pipeline = Pipeline(source = StaticSource(data = data))
+    
             base_path = Path(path)
             dump_file_path = base_path / f"{i}.dump"
-            export_file(data, dump_file_path, "lammps/dump",
-                columns = ["Particle Identifier","Position.X", "Position.Y", "Position.Z","Particle Type"])
+            # Write the LAMMPS dump file
+            with open(dump_file_path, 'w') as dump_file:
+                dump_file.write(f"ITEM: TIMESTEP\n{self.time:.10f}\n")
+                dump_file.write("ITEM: NUMBER OF ATOMS\n")
+                dump_file.write(f"{len(sites_occupied_cart)}\n")
+                dump_file.write("ITEM: BOX BOUNDS (Angstrom)\n")
+                dump_file.write(f"0.0 {self.crystal_size[0]}\n")
+                dump_file.write(f"0.0 {self.crystal_size[1]}\n")
+                dump_file.write(f"0.0 {self.crystal_size[2]}\n")
+                dump_file.write("ITEM: ATOMS id type x y z\n")
+                for pid, sid, pos in zip(particle_ids, species_ids, sites_occupied_cart):
+                    dump_file.write(f"{pid} {sid} {pos[0]} {pos[1]} {pos[2]}\n")
             
-            # Add the time step as a comment at the beginning of the dump file
-            with open(dump_file_path, 'r+') as dump_file:
-                content = dump_file.read()
-                dump_file.seek(0, 0)
-                dump_file.write(f"# Time: {self.time:.10f}\n" + content)
             
             
             # Write the metadata file

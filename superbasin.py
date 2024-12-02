@@ -228,13 +228,17 @@ class Superbasin():
         self.transition_rates = np.where(sum_transition_rates < 0, 0, sum_transition_rates)
         kb = constants.physical_constants['Boltzmann constant in eV/K'][0]
         nu0=7E12;  # nu0 (s^-1) bond vibration frequency
-        self.EAct = -kb*T*np.log(self.transition_rates/nu0)
-        
+        # The np.where() is included to handle transition_rates = 0
+        with np.errstate(divide='ignore'):
+            self.EAct = np.where(self.transition_rates > 0, -kb * T * np.log(self.transition_rates / nu0), 
+                                 np.inf)
+                
         self.site_events_absorbing = [
             (transition_r, absorbing_state, num_event - 2, EAct, self.particle_idx)
             for transition_r, absorbing_state, EAct 
             in zip(self.transition_rates, self.absorbing_states, self.EAct)
             ]
+        
   
     def calculate_superbasin_environment(self,grid_crystal):
         

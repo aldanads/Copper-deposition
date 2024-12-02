@@ -8,7 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import platform
 import shutil
-import os 
 from crystal_lattice import Crystal_Lattice
 from superbasin import Superbasin
 from pymatgen.ext.matproj import MPRester
@@ -19,7 +18,7 @@ import pickle
 import shelve
 
 
-def initialization(n_sim,save_data,ovito_file):
+def initialization(n_sim,save_data,lammps_file):
     
     seed = 1
     # Random seed as time
@@ -200,7 +199,7 @@ def initialization(n_sim,save_data,ovito_file):
 
         filename = 'grid_crystal'
         System_state = initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
-              ovito_file,superbasin_parameters,save_data)  
+              lammps_file,superbasin_parameters,save_data)  
         
 
         # The minimum energy to select transition pathways to create a superbasin should be smaller
@@ -269,7 +268,7 @@ def initialization(n_sim,save_data,ovito_file):
     #     Initialize the crystal grid structure - nodes with empty spaces
     # =============================================================================    
 def initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
-    ovito_file,superbasin_parameters,save_data):
+    lammps_file,superbasin_parameters,save_data):
       
         # If grid_crystal exists: we loaded
         # Otherwise: we create it (very expensive for larger systems ~100 anstrongs)
@@ -287,7 +286,7 @@ def initialize_grid_crystal(filename,crystal_features,experimental_conditions,Ac
             with shelve.open(dat_file) as my_shelf:
                 grid_crystal = my_shelf.get(filename)
             
-            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,lammps_file,superbasin_parameters,grid_crystal)
 
         elif pkl_file_with_ext.exists():
             print('Loading grid_crystal.pkl')
@@ -297,12 +296,12 @@ def initialize_grid_crystal(filename,crystal_features,experimental_conditions,Ac
                 data = pickle.load(file)
             grid_crystal = data.get(filename)
             
-            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters,grid_crystal)
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,lammps_file,superbasin_parameters,grid_crystal)
 
             
         else:
             # Create new grid_crystal
-            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,ovito_file,superbasin_parameters)
+            System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,lammps_file,superbasin_parameters)
             
             # Save the newly created data
             if save_data: 
