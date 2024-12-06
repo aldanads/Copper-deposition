@@ -16,13 +16,17 @@ from pathlib import Path
 
 import pickle
 import shelve
+import os
+import time
+import concurrent.futures
+
 
 
 def initialization(n_sim,save_data,lammps_file):
     
-    seed = 1
+    # seed = 1
     # Random seed as time
-    rng = np.random.default_rng(seed) # Random Number Generator (RNG) object
+    rng = np.random.default_rng() # Random Number Generator (RNG) object
 
     # Default resolution for figures
     plt.rcParams["figure.dpi"] = 100 # Default value of dpi = 300
@@ -34,7 +38,7 @@ def initialization(n_sim,save_data,lammps_file):
         if platform.system() == 'Windows': # When running in laptop
             dst = Path(r'\\FS1\Docs2\samuel.delgado\My Documents\Publications\Material deposition exploration\Simulations\Test')
         elif platform.system() == 'Linux': # HPC works on Linux
-            dst = Path(r'/sfiwork/samuel.delgado/Copper_deposition/Varying_substrate/batch_simulation/annealing/TaN/T300/')
+            dst = Path(r'/sfiwork/samuel.delgado/Mapping/Test/')
             
         paths,Results = save_simulation(files_copy,dst,n_sim) # Create folders and python files
         
@@ -50,11 +54,17 @@ def initialization(n_sim,save_data,lammps_file):
 #         Experimental conditions
 #         
 # =============================================================================
-        sticking_coeff = 1
-        partial_pressure = 10 # (Pa = N m^-2 = kg m^-1 s^-2)
+# =============================================================================
+#        Partial pressure and deposition temperature
+#         Lee, Won-Jun, Sa-Kyun Rha, Seung-Yun Lee, Dong-Won Kim, and Chong-Ook Park. 
+#         "Effect of the pressure on the chemical vapor deposition of copper from copper hexafluoroacetylacetonate trimethylvinylsilane." 
+#         Thin Solid Films 305, no. 1-2 (1997): 254-258.
+# =============================================================================
+        sticking_coeff = 1        
+        partial_pressure = 113 # (Pa = N m^-2 = kg m^-1 s^-2)
         # p = 0.1 - 10 typical values 
         # T = 573 + n_sim * 100 # (K)
-        temp = 600
+        temp = 431
         T = temp # (K)
         
         experimental_conditions = [sticking_coeff,partial_pressure,T,experiment]
@@ -65,12 +75,16 @@ def initialization(n_sim,save_data,lammps_file):
 # =============================================================================
         #id_material_COD = 5000216 # Cu
         id_material_Material_Project = "mp-30" # Cu
-        crystal_size = (20,20,20) # (angstrom (Å))
+        crystal_size = (100,100,100) # (angstrom (Å))
         orientation = ['001','111']
         use_parallel = None
-
+        
+        script_directory = Path(__file__).parent        # Get the config path from the environment variable or fallback to the current directory
+        config_path = script_directory / 'config.json'
+        
+        
         # Create a config.json file with the API key -> To avoid uploading to Github
-        with open('config.json') as config_file:
+        with open(config_path) as config_file:
             config = json.load(config_file)
             api_key = config['api_key']
         
@@ -88,9 +102,9 @@ def initialization(n_sim,save_data,lammps_file):
 #             Superbasin parameters
 #     
 # =============================================================================
-        n_search_superbasin = 3 # If the time step is very small during 10 steps, search for superbasin
-        time_step_limits = 1e-8 # Time needed for efficient evolution of the system
-        E_min = 0.6
+        n_search_superbasin = 50 # If the time step is very small during 10 steps, search for superbasin
+        time_step_limits = 1e-7 # Time needed for efficient evolution of the system
+        E_min = 0.1
         superbasin_parameters = [n_search_superbasin, time_step_limits,E_min]
 # =============================================================================
 #       Different surface Structures- fcc Metals
@@ -125,12 +139,13 @@ def initialization(n_sim,save_data,lammps_file):
 #       "Transition-pathway models of atomic diffusion on fcc metal surfaces. II. Stepped surfaces." 
 #       Physical Review B 76, no. 24 (2007): 245408.
 # =============================================================================
-        select_dataset = 4   
+        select_dataset = 3   
         Act_E_dataset = ['TaN','Ru25','Ru50','homoepitaxial','template_upward']  
         
         
         # Retrieve the activation energies
-        with open('activation_energies_set.json', 'r') as file:
+        activation_energy_file = script_directory / 'activation_energies_set.json'
+        with open(activation_energy_file, 'r') as file:
             data = json.load(file)
             
         E_dataset = []
@@ -200,20 +215,21 @@ def initialization(n_sim,save_data,lammps_file):
         filename = 'grid_crystal'
         System_state = initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
               lammps_file,superbasin_parameters,save_data)  
-        
+                
 
         # The minimum energy to select transition pathways to create a superbasin should be smaller
         # than the adsorption energy
-        if superbasin_parameters[2] > System_state.Act_E_ad:  # Replace with your actual range
-            raise ValueError("Minimum energy for superbasin is greater than adsorption energy.")
+        print(f"Minimum energy for superbasin {superbasin_parameters[2]} and activation energy for adsorption {System_state.Act_E_ad}")
+        if superbasin_parameters[2] > System_state.Act_E_ad:
+            raise ValueError(f"Minimum energy for superbasin {superbasin_parameters[2]} is greater than activation energy for adsorption {System_state.Act_E_ad}")
             import sys
             sys.exit(1)
             
         # Maximum probability per site for deposition to establish a timestep limits
         # The maximum timestep is that one that occupy X% of the site during the deposition process
-        P_limits = 0.02
+        P_limits = 0.05
         System_state.limit_kmc_timestep(P_limits)
-    
+        print(System_state.timestep_limits)
 # =============================================================================
 #     - test[0] - Normal deposition
 #     - test[1] - Introduce a single particle in a determined site
@@ -318,13 +334,22 @@ def search_superbasin(System_state):
     
     # This approach should be more efficient and memory-friendly
     sites_occupied = System_state.sites_occupied[:] 
-    
+
+    start_time = time.time()
+
     for idx in sites_occupied:
         for event in System_state.grid_crystal[idx].site_events:
             if (idx not in System_state.superbasin_dict) and (event[3] <= System_state.E_min):
-                System_state.superbasin_dict.update({idx: Superbasin(idx, System_state, System_state.E_min,sites_occupied)})
-                
 
+                System_state.superbasin_dict.update({idx: Superbasin(idx, System_state, System_state.E_min,sites_occupied)})
+    
+    # Record the end time
+    end_time = time.time()
+    # Calculate the elapsed time
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time superbasin: {elapsed_time} seconds")    
+    print("Superbasins generated: ",len(System_state.superbasin_dict))
+        
 
 def save_simulation(files_copy,dst,n_sim):
     

@@ -713,7 +713,7 @@ class Crystal_Lattice():
         # We dismantle the superbasin if the chosen_event affect some of the states
         # that belong to any of the superbasin
         keys_to_delete = [idx for idx, sb in self.superbasin_dict.items()
-                          if chosen_event[1] in sb.superbasin_environment and
+                          if chosen_event[1] in sb.superbasin_environment or
                           chosen_event[-1] in sb.superbasin_environment]
 
         for key in keys_to_delete:
@@ -891,27 +891,27 @@ class Crystal_Lattice():
             positions = np.array([self.grid_crystal[idx].position for idx in self.sites_occupied])
             if positions.size != 0:
                 x, y, z = positions[:, 0], positions[:, 1], positions[:, 2]
-                axa.scatter3D(x, y, z, c='blue', marker='o',s=200, alpha = 1)
-                axb.scatter3D(x, y, z, c='blue', marker='o',s=200, alpha = 1)
+                axa.scatter3D(x, y, z, c='blue', marker='o', alpha = 1)
+                axb.scatter3D(x, y, z, c='blue', marker='o', alpha = 1)
             
-            axa.set_xlabel('x-axis (nm)')
-            axa.set_ylabel('y-axis (nm)')
-            axa.set_zlabel('z-axis (nm)')
+            axa.set_xlabel('x-axis (Angstrom)')
+            axa.set_ylabel('y-axis (Angstrom)')
+            axa.set_zlabel('z-axis (Angstrom)')
             axa.view_init(azim=azim, elev = elev)
     
             axa.set_xlim([0, self.crystal_size[0]]) 
             axa.set_ylim([0, self.crystal_size[1]])
-            axa.set_zlim([0, self.crystal_size[2]/2])
+            axa.set_zlim([0, self.crystal_size[2] * 0.4])
             axa.set_aspect('equal', 'box')
             
-            axb.set_xlabel('x-axis (nm)')
-            axb.set_ylabel('y-axis (nm)')
-            axb.set_zlabel('z-axis (nm)')
+            axb.set_xlabel('x-axis (Angstrom)')
+            axb.set_ylabel('y-axis (Angstrom)')
+            axb.set_zlabel('z-axis (Angstrom)')
             axb.view_init(azim=45, elev = 10)
     
             axb.set_xlim([0, self.crystal_size[0]]) 
             axb.set_ylim([0, self.crystal_size[1]])
-            axb.set_zlim([0, self.crystal_size[2]/2])
+            axb.set_zlim([0, self.crystal_size[2] * 0.4])
             axb.set_aspect('equal', 'box')
     
     

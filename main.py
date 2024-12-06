@@ -40,20 +40,20 @@ from KMC import KMC
 import numpy as np
 import time
 
-save_data = True
-lammps_file = True
+save_data = False
+lammps_file = False
 
 def main():
 
-    for n_sim in range(0,5):
+    for n_sim in range(0,3):
         
         System_state,rng,paths,Results = initialization(n_sim,save_data,lammps_file)
         System_state.add_time()
-    
+            
         System_state.plot_crystal(45,45,paths['data'],0)    
         j = 0
 
-        snapshoots_steps = int(2e1)
+        snapshoots_steps = int(5e1)
         starting_time = time.time()
     # =============================================================================
     #     Deposition
@@ -62,26 +62,40 @@ def main():
         if System_state.experiment == 'deposition':   
 
             nothing_happen = 0
-            list_time_step = []
-            thickness_limit = 4 # (1 nm)
+            # list_time_step = []
+            list_sites_occu = []
+            thickness_limit = 10 # (1 nm)
             System_state.measurements_crystal()
             i = 0
             while System_state.thickness < thickness_limit:
                 i+=1
-                                
+          
                 System_state,KMC_time_step = KMC(System_state,rng)
-
-
-                list_time_step.append(KMC_time_step)
-                if np.mean(list_time_step[-System_state.n_search_superbasin:]) <= System_state.time_step_limits:
+                list_sites_occu.append(len(System_state.sites_occupied))
+                print(len(System_state.sites_occupied))
+                # print('Time step: ', KMC_time_step)
+                # print('Mean time last steps: ',np.mean(list_time_step[-System_state.n_search_superbasin:]))
+                # list_time_step.append(KMC_time_step)
+                print(nothing_happen)
+                if np.mean(list_sites_occu[-System_state.n_search_superbasin:]) == len(System_state.sites_occupied):
+                    print('Mean: ',np.mean(list_sites_occu[-System_state.n_search_superbasin:]))
+                # if np.mean(list_time_step[-System_state.n_search_superbasin:]) <= System_state.time_step_limits:
                     nothing_happen +=1    
                 else:
                     nothing_happen = 0
+                    if System_state.E_min - 0.05 > 0:
+                        System_state.E_min -= 0.05
+                    else:
+                        System_state.E_min = 0
                 
-                if nothing_happen >= System_state.n_search_superbasin:
+                if System_state.n_search_superbasin == nothing_happen:
                     search_superbasin(System_state)
-                    nothing_happen = 0
-    
+                elif nothing_happen> 0 and nothing_happen % System_state.n_search_superbasin == 0:
+                    if System_state.Act_E_ad >= System_state.E_min + 0.05:
+                        System_state.E_min += 0.05
+                    else:
+                        System_state.E_min = System_state.Act_E_ad * 0.85
+                    search_superbasin(System_state)
             
                 if i%snapshoots_steps== 0:
                     System_state.add_time()
@@ -144,13 +158,12 @@ def main():
     return System_state
 
 if __name__ == '__main__':
-   System_state = main()
+   # System_state = main()
 # Use cProfile to profile the main function
-# if __name__ == '__main__':
-#     cProfile.run('main()', 'profile_output.prof')    
+    cProfile.run('main()', 'profile_output.prof')    
 
-# import pstats
+import pstats
 
 # Load and analyze the profiling results
-# p = pstats.Stats('profile_output.prof')
-# p.strip_dirs().sort_stats('time').print_stats(15)  # Show top 10 time-consuming functions
+p = pstats.Stats('profile_output.prof')
+p.strip_dirs().sort_stats('time').print_stats(15)  # Show top 10 time-consuming functions

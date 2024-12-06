@@ -4,21 +4,21 @@
       "name": "Ag",
       "activation_energies_111_homoepitaxial (eV)": {
         "plane_substrate": 0.064,
-        "upward_substrate_to_111": 0.313,
-        "downward_111_to_substrate": 0.095,
-        "upward_111": 0.313,
-        "downward_111": 0.095,
-        "upward_substrate_to_100": 0.528,
-        "downward_100_to_substrate": 0.318,
-        "surface_111": 0.043,
-        "surface_100": 0.477,  
-        "edge_100": 0.245,      
-        "edge_111": 0.309,
+        "upward_substrate_to_111": 0.244,
+        "downward_111_to_substrate": 0.181,
+        "upward_111": 0.62,
+        "downward_111": 0.181,
+        "upward_substrate_to_100": 0.402,
+        "downward_100_to_substrate": 0.344,
+        "surface_111": 0.064,
+        "surface_100": 0.467,  
+        "edge_100": 0.258,      
+        "edge_111": 0.302,
         "edge_111_on_substrate": null,
         "edge_100_on_substrate": null,
         "binding_energy": 0,
-        "Coordination_number_contribution": -0.15,
-        "Reference": ["10.1103/PhysRevMaterials.2.063401"],
+        "Coordination_number_contribution": -0.215,
+        "Reference": ["10.1103/PhysRevB.76.245408","10.1103/PhysRevMaterials.2.063401"],
         "Description": "Ag film growing in 111 direction (homoepitaxial)"
 }
     },
@@ -26,12 +26,12 @@
       "name": "Cu",
       "activation_energies_111_homoepitaxial (eV)": {
         "plane_substrate": 0.043,
-        "upward_substrate_to_111": 0.313,
+        "upward_substrate_to_111": 0.311,
         "downward_111_to_substrate": 0.095,
-        "upward_111": 0.313,
+        "upward_111": 0.311,
         "downward_111": 0.095,
-        "upward_substrate_to_100": 0.528,
-        "downward_100_to_substrate": 0.318,
+        "upward_substrate_to_100": 0.3,
+        "downward_100_to_substrate": 0.420,
         "surface_111": 0.043,
         "surface_100": 0.477,  
         "edge_100": 0.245,      
@@ -39,7 +39,7 @@
         "edge_111_on_substrate": null,
         "edge_100_on_substrate": null,
         "binding_energy": 0,
-        "Coordination_number_contribution": -0.15,
+        "Coordination_number_contribution": -0.26,
         "Reference": ["10.1103/PhysRevB.76.245407","10.1103/PhysRevB.76.245408"],
         "Description": "Cu film growing in 111 direction (homoepitaxial)"
       },
@@ -125,22 +125,46 @@
     },
     {
       "name": "Co",
-      "activation_energies": {
-        "type1_surface1": 1.50,
-        "type1_surface2": 1.60,
-        "type2_surface1": 1.70,
-        "type2_surface2": 1.80,
-        "type3_surface1": 1.90
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": null,
+        "upward_substrate_to_111": null,
+        "downward_111_to_substrate": null,
+        "upward_111": null,
+        "downward_111": null,
+        "upward_substrate_to_100": null,
+        "downward_100_to_substrate": null,
+        "surface_111": null,
+        "surface_100": null,  
+        "edge_100": null,      
+        "edge_111": null,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": 0,
+        "Coordination_number_contribution": null,
+        "Reference": ["---"],
+        "Description": "Co"
       }
     },
     {
       "name": "Ru",
-      "activation_energies": {
-        "type1_surface1": 1.80,
-        "type1_surface2": 1.90,
-        "type2_surface1": 2.00,
-        "type2_surface2": 2.10,
-        "type3_surface1": 2.20
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": null,
+        "upward_substrate_to_111": null,
+        "downward_111_to_substrate": null,
+        "upward_111": null,
+        "downward_111": null,
+        "upward_substrate_to_100": null,
+        "downward_100_to_substrate": null,
+        "surface_111": null,
+        "surface_100": null,  
+        "edge_100": null,      
+        "edge_111": null,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": 0,
+        "Coordination_number_contribution": null,
+        "Reference": ["---"],
+        "Description": "Ru"
       }
     }
   ]
