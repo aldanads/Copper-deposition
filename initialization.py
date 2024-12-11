@@ -38,7 +38,7 @@ def initialization(n_sim,save_data,lammps_file):
         if platform.system() == 'Windows': # When running in laptop
             dst = Path(r'\\FS1\Docs2\samuel.delgado\My Documents\Publications\Material deposition exploration\Simulations\Test')
         elif platform.system() == 'Linux': # HPC works on Linux
-            dst = Path(r'/sfiwork/samuel.delgado/Mapping/Test/')
+            dst = Path(r'/sfiwork/samuel.delgado/Mapping/Cu/')
             
         paths,Results = save_simulation(files_copy,dst,n_sim) # Create folders and python files
         
@@ -74,11 +74,13 @@ def initialization(n_sim,save_data,lammps_file):
 #         
 # =============================================================================
         #id_material_COD = 5000216 # Cu
-        id_material_Material_Project = "mp-30" # Cu
+        material_selection = {"Ni":"mp-23","Cu":"mp-30", "Pd": "mp-2","Ag":"mp-124","Pt":"mp-126","Au":"mp-81"}
+        id_material_Material_Project = material_selection['Au']
         crystal_size = (100,100,100) # (angstrom (Å))
         orientation = ['001','111']
         use_parallel = None
-        
+        facets_type = [(1,1,1),(1,0,0)]
+
         script_directory = Path(__file__).parent        # Get the config path from the environment variable or fallback to the current directory
         config_path = script_directory / 'config.json'
         
@@ -96,16 +98,17 @@ def initialization(n_sim,save_data,lammps_file):
             formula = material_summary[0].formula_pretty
 
             
-        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel]
+        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel,facets_type]
         
 # =============================================================================
 #             Superbasin parameters
 #     
 # =============================================================================
-        n_search_superbasin = 50 # If the time step is very small during 10 steps, search for superbasin
+        n_search_superbasin = 25 # If the time step is very small during 10 steps, search for superbasin
         time_step_limits = 1e-7 # Time needed for efficient evolution of the system
-        E_min = 0.1
-        superbasin_parameters = [n_search_superbasin, time_step_limits,E_min]
+        E_min = 0.0
+        energy_step = 0.05
+        superbasin_parameters = [n_search_superbasin,time_step_limits,E_min,energy_step]
 # =============================================================================
 #       Different surface Structures- fcc Metals
 #       https://chem.libretexts.org/Bookshelves/Physical_and_Theoretical_Chemistry_Textbook_Maps/Surface_Science_(Nix)/01%3A_Structure_of_Solid_Surfaces/1.03%3A_Surface_Structures-_fcc_Metals
@@ -130,7 +133,7 @@ def initialization(n_sim,save_data,lammps_file):
 #           - 2ML Ru - Activation energy for Cu migration - [0.46, 0.44] (ev)
 #           - Information about clustering two Cu atoms on TaN and Ru surfaces
 # 
-#       ACTIVATION ENERGIES - Cu
+#       ACTIVATION ENERGIES
 #       Kim, Sung Youb, In-Ho Lee, and Sukky Jun. 
 #       "Transition-pathway models of atomic diffusion on fcc metal surfaces. I. Flat surfaces." 
 #       Physical Review B 76, no. 24 (2007): 245407.
@@ -141,7 +144,6 @@ def initialization(n_sim,save_data,lammps_file):
 # =============================================================================
         select_dataset = 3   
         Act_E_dataset = ['TaN','Ru25','Ru50','homoepitaxial','template_upward']  
-        
         
         # Retrieve the activation energies
         activation_energy_file = script_directory / 'activation_energies_set.json'
@@ -164,12 +166,12 @@ def initialization(n_sim,save_data,lammps_file):
         E_mig_sub = E_dataset[0] # (eV)
         E_mig_upward_subs_layer111 = E_dataset[1]
         E_mig_downward_layer111_subs = E_dataset[2]
-        E_mig_upward_layer1_layer2_111 = E_dataset[3] + 0.1 * n_sim
+        E_mig_upward_layer1_layer2_111 = E_dataset[3] # + 0.1 * n_sim
         E_mig_downward_layer2_layer1_111 = E_dataset[4]
         E_mig_upward_subs_layer100 = E_dataset[5] 
         E_mig_downward_layer100_subs = E_dataset[6]
         E_mig_111_terrace_Cu = E_dataset[7]
-        E_mig_100_terrace_Cu = E_dataset[8] + 0.1 * n_sim
+        E_mig_100_terrace_Cu = E_dataset[8] # + 0.1 * n_sim
         E_mig_edge_100 = E_dataset[9]
         E_mig_edge_111 = E_dataset[10]
 
@@ -183,21 +185,17 @@ def initialization(n_sim,save_data,lammps_file):
         # =============================================================================
 
         # Binding energy | Desorption energy: https://doi.org/10.1039/D1SC04708F
-        binding_energy = E_dataset[-2] - 0.1 * n_sim
+        binding_energy = E_dataset[-2] # - 0.1 * n_sim
 
              
+
 # =============================================================================
-#     Böyükata, M., & Belchior, J. C. (2008). 
-#     Structural and Energetic Analysis of Copper Clusters: MD Study of Cu n (n = 2-45). 
-#     In J. Braz. Chem. Soc (Vol. 19, Issue 5).
-#      - Clustering energy
+#     Kim, Sung Youb, In-Ho Lee, and Sukky Jun. 
+#     "Transition-pathway models of atomic diffusion on fcc metal surfaces. II. Stepped surfaces." 
+#     Physical Review B 76, no. 24 (2007): 245408.
 # 
-#     Kondati Natarajan, S., Nies, C. L., & Nolan, M. (2020). 
-#     The role of Ru passivation and doping on the barrier and seed layer properties of Ru-modified TaN for copper interconnects. 
-#     Journal of Chemical Physics, 152(14). https://doi.org/10.1063/5.0003852
-# =============================================================================    
-    # clustering_energy = -0.252
-    #clustering_energy = -0.21
+#     Extract the contribution of the coordination number from the atoms migrating to the step corner   
+# =============================================================================
         clustering_energy = E_dataset[-1]
         E_clustering = [0,0,clustering_energy * 2,clustering_energy * 3,clustering_energy * 4,clustering_energy * 5,clustering_energy * 6,clustering_energy * 7,clustering_energy * 8,clustering_energy * 9,clustering_energy * 10,clustering_energy * 11,clustering_energy * 12,clustering_energy * 13] 
 
@@ -210,12 +208,10 @@ def initialization(n_sim,save_data,lammps_file):
                       E_mig_edge_100,E_mig_edge_111,
                       binding_energy,E_clustering]
         
-
-
+        
         filename = 'grid_crystal'
         System_state = initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
               lammps_file,superbasin_parameters,save_data)  
-                
 
         # The minimum energy to select transition pathways to create a superbasin should be smaller
         # than the adsorption energy
@@ -229,7 +225,7 @@ def initialization(n_sim,save_data,lammps_file):
         # The maximum timestep is that one that occupy X% of the site during the deposition process
         P_limits = 0.05
         System_state.limit_kmc_timestep(P_limits)
-        print(System_state.timestep_limits)
+
 # =============================================================================
 #     - test[0] - Normal deposition
 #     - test[1] - Introduce a single particle in a determined site
@@ -317,10 +313,12 @@ def initialize_grid_crystal(filename,crystal_features,experimental_conditions,Ac
             
         else:
             # Create new grid_crystal
+            print('Creating grid_crystal')
             System_state = Crystal_Lattice(crystal_features,experimental_conditions,Act_E_list,lammps_file,superbasin_parameters)
             
             # Save the newly created data
-            if save_data: 
+            if save_data:
+                print('Saving grid_crystal')
                 save_variables(current_directory, {filename : System_state.grid_crystal}, filename)
 
         return System_state
@@ -347,8 +345,11 @@ def search_superbasin(System_state):
     end_time = time.time()
     # Calculate the elapsed time
     elapsed_time = end_time - start_time
-    print(f"Elapsed time superbasin: {elapsed_time} seconds")    
-    print("Superbasins generated: ",len(System_state.superbasin_dict))
+    
+    if elapsed_time > 300 and System_state.E_min_lim_superbasin > System_state.energy_step:
+        System_state.E_min -= System_state.energy_step
+    # print(f"Elapsed time superbasin: {elapsed_time} seconds")    
+    # print("Superbasins generated: ",len(System_state.superbasin_dict))
         
 
 def save_simulation(files_copy,dst,n_sim):

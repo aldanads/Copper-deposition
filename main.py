@@ -45,7 +45,7 @@ lammps_file = False
 
 def main():
 
-    for n_sim in range(0,3):
+    for n_sim in range(0,1):
         
         System_state,rng,paths,Results = initialization(n_sim,save_data,lammps_file)
         System_state.add_time()
@@ -72,30 +72,34 @@ def main():
           
                 System_state,KMC_time_step = KMC(System_state,rng)
                 list_sites_occu.append(len(System_state.sites_occupied))
-                print(len(System_state.sites_occupied))
-                # print('Time step: ', KMC_time_step)
+                # print(len(System_state.sites_occupied))
+                # print('Time step: ', KMC_timels_step)
                 # print('Mean time last steps: ',np.mean(list_time_step[-System_state.n_search_superbasin:]))
                 # list_time_step.append(KMC_time_step)
-                print(nothing_happen)
+                # print(nothing_happen)
                 if np.mean(list_sites_occu[-System_state.n_search_superbasin:]) == len(System_state.sites_occupied):
-                    print('Mean: ',np.mean(list_sites_occu[-System_state.n_search_superbasin:]))
+                    # print('Mean: ',np.mean(list_sites_occu[-System_state.n_search_superbasin:]))
                 # if np.mean(list_time_step[-System_state.n_search_superbasin:]) <= System_state.time_step_limits:
                     nothing_happen +=1    
                 else:
                     nothing_happen = 0
-                    if System_state.E_min - 0.05 > 0:
-                        System_state.E_min -= 0.05
+                    if System_state.E_min - System_state.energy_step > 0:
+                        System_state.E_min -= System_state.energy_step
                     else:
                         System_state.E_min = 0
                 
                 if System_state.n_search_superbasin == nothing_happen:
                     search_superbasin(System_state)
                 elif nothing_happen> 0 and nothing_happen % System_state.n_search_superbasin == 0:
-                    if System_state.Act_E_ad >= System_state.E_min + 0.05:
-                        System_state.E_min += 0.05
+                    if System_state.E_min_lim_superbasin >= System_state.E_min + System_state.energy_step:
+                        System_state.E_min += System_state.energy_step
                     else:
-                        System_state.E_min = System_state.Act_E_ad * 0.85
+                        System_state.E_min = System_state.E_min_lim_superbasin
                     search_superbasin(System_state)
+                    
+
+                    
+                # print('Superbasin E_min: ',System_state.E_min)
             
                 if i%snapshoots_steps== 0:
                     System_state.add_time()
@@ -158,12 +162,12 @@ def main():
     return System_state
 
 if __name__ == '__main__':
-   # System_state = main()
+    System_state = main()
 # Use cProfile to profile the main function
-    cProfile.run('main()', 'profile_output.prof')    
+#     cProfile.run('main()', 'profile_output.prof')    
 
-import pstats
+# import pstats
 
-# Load and analyze the profiling results
-p = pstats.Stats('profile_output.prof')
-p.strip_dirs().sort_stats('time').print_stats(15)  # Show top 10 time-consuming functions
+# # Load and analyze the profiling results
+# p = pstats.Stats('profile_output.prof')
+# p.strip_dirs().sort_stats('time').print_stats(15)  # Show top 10 time-consuming functions

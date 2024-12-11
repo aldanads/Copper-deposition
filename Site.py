@@ -21,7 +21,7 @@ class Site():
         self.Act_E_list = Act_E_list
         self.site_events = [] # Possible events corresponding to this node
         self.migration_paths = {'Plane':[],'Up':[],'Down':[]} # Possible migration sites with the corresponding label
-       
+
         # Cache memory            
         self.cache_planes = {}
         self.cache_TR = {}
@@ -83,7 +83,8 @@ class Site():
                 elif (pos[2]-self.position[2]) < -tol:               
                     self.migration_paths['Down'].append([tuple(min_dist_idx),event_labels[tuple(idx - np.array(idx_origin))]])
               
-    
+        self.mig_paths = {num_event:site_idx for site_idx, num_event in self.migration_paths['Plane']}       
+
 # =============================================================================
 #         Occupied sites supporting this node
 # =============================================================================    
@@ -144,12 +145,12 @@ class Site():
         if supp_by_destiny == 0:
             
             # Check memory cache
-            # cache_key = tuple(sorted(self.supp_by, key=lambda x: str(x)))
             cache_key = self.supp_by
             if cache_key in self.cache_clustering_energy:
                 self.energy_site = self.cache_clustering_energy[cache_key]
                 return
-                
+            
+            if 'Substrate' in self.supp_by:
                 self.energy_site = self.Act_E_list[-1][len(self.supp_by)] + self.Act_E_list[-2]
             else:
                 self.energy_site = self.Act_E_list[-1][len(self.supp_by)+1]
@@ -162,7 +163,6 @@ class Site():
         else:
             
             # Check memory cache
-            # cache_key = tuple(sorted(supp_by_destiny, key=lambda x: str(x)))
             cache_key = supp_by_destiny
             if cache_key in self.cache_clustering_energy:
                 return self.cache_clustering_energy[cache_key]
@@ -434,21 +434,20 @@ class Site():
             self.cache_edges[cache_key]
             return 
         
-        mig_paths = {num_event:site_idx for site_idx, num_event in self.migration_paths['Plane']}       
-        self.edges_v = {i:None for i in mig_paths.keys()}
+        self.edges_v = {i:None for i in self.mig_paths.keys()}
         
         bottom_support = all(site_idx in self.supp_by for site_idx, num_event in self.migration_paths['Down'])
             
         # To be an edge it must be support by the substrate or the atoms from the down layer
         if 'Substrate' in self.supp_by or bottom_support:
             # Check for each migration direction the edges that are parallel
-            for num_event,site_idx in mig_paths.items():
+            for num_event,site_idx in self.mig_paths.items():
                 edges = dir_edge_facets[num_event]
             
                 # Check if one of the edges is occupied for the chemical speice (both sites)
                 for edge in edges:
-                    if (grid_crystal[mig_paths[edge[0][0]]].chemical_specie == chemical_specie 
-                        and grid_crystal[mig_paths[edge[0][1]]].chemical_specie == chemical_specie):
+                    if (grid_crystal[self.mig_paths[edge[0][0]]].chemical_specie == chemical_specie 
+                        and grid_crystal[self.mig_paths[edge[0][1]]].chemical_specie == chemical_specie):
                         self.edges_v[num_event] = edge[1] # Associate the edge with the facet
                     
         # Store the result in the cache

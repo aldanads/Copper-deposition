@@ -1,6 +1,50 @@
 {
   "elements": [
     {
+      "name": "Ni",
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": 0.061,
+        "upward_substrate_to_111": 0.304,
+        "downward_111_to_substrate": 0.001,
+        "upward_111": 0.304,
+        "downward_111": 0.001,
+        "upward_substrate_to_100": 0.619,
+        "downward_100_to_substrate": 0.286,
+        "surface_111": 0.061,
+        "surface_100": 0.376,  
+        "edge_100": 0.158,      
+        "edge_111": 0.385,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": -0.636,
+        "Coordination_number_contribution": -0.212,
+        "Reference": ["10.1103/PhysRevB.76.245408"],
+        "Description": "Ni film growing in 111 direction (homoepitaxial)"
+}
+    },
+    {
+      "name": "Pd",
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": 0.109,
+        "upward_substrate_to_111": 0.068,
+        "downward_111_to_substrate": 0.295,
+        "upward_111": 0.068,
+        "downward_111": 0.295,
+        "upward_substrate_to_100": 0.167,
+        "downward_100_to_substrate": 0.393,
+        "surface_111": 0.109,
+        "surface_100": 0.621,  
+        "edge_100": 0.364,      
+        "edge_111": 0.381,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": -0.78,
+        "Coordination_number_contribution": -0.26,
+        "Reference": ["10.1103/PhysRevB.76.245408"],
+        "Description": "Pd film growing in 111 direction (homoepitaxial)"
+}
+    },
+    {
       "name": "Ag",
       "activation_energies_111_homoepitaxial (eV)": {
         "plane_substrate": 0.064,
@@ -16,10 +60,54 @@
         "edge_111": 0.302,
         "edge_111_on_substrate": null,
         "edge_100_on_substrate": null,
-        "binding_energy": 0,
+        "binding_energy": -0.645,
         "Coordination_number_contribution": -0.215,
         "Reference": ["10.1103/PhysRevB.76.245408","10.1103/PhysRevMaterials.2.063401"],
         "Description": "Ag film growing in 111 direction (homoepitaxial)"
+}
+    },
+    {
+      "name": "Pt",
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": 0.171,
+        "upward_substrate_to_111": 0.153,
+        "downward_111_to_substrate": 0.408,
+        "upward_111": 0.153,
+        "downward_111": 0.408,
+        "upward_substrate_to_100": 0.262,
+        "downward_100_to_substrate": 0.496,
+        "surface_111": 0.171,
+        "surface_100": 0.875,  
+        "edge_100": 0.536,      
+        "edge_111": 0.461,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": -0.96,
+        "Coordination_number_contribution": -0.32,
+        "Reference": ["10.1103/PhysRevB.76.245408"],
+        "Description": "Pt film growing in 111 direction (homoepitaxial)"
+}
+    },
+    {
+      "name": "Au",
+      "activation_energies_111_homoepitaxial (eV)": {
+        "plane_substrate": 0.117,
+        "upward_substrate_to_111": 0.089,
+        "downward_111_to_substrate": 0.244,
+        "upward_111": 0.089,
+        "downward_111": 0.244,
+        "upward_substrate_to_100": 0.133,
+        "downward_100_to_substrate": 0.262,
+        "surface_111": 0.117,
+        "surface_100": 0.531,  
+        "edge_100": 0.352,      
+        "edge_111": 0.237,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": -0.54,
+        "Coordination_number_contribution": -0.18,
+        "Reference": ["10.1103/PhysRevB.76.245408"],
+        "Description": "Au film growing in 111 direction (homoepitaxial)"
 }
     },
     {
@@ -38,7 +126,7 @@
         "edge_111": 0.309,
         "edge_111_on_substrate": null,
         "edge_100_on_substrate": null,
-        "binding_energy": 0,
+        "binding_energy": -0.78,
         "Coordination_number_contribution": -0.26,
         "Reference": ["10.1103/PhysRevB.76.245407","10.1103/PhysRevB.76.245408"],
         "Description": "Cu film growing in 111 direction (homoepitaxial)"

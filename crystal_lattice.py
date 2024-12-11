@@ -44,6 +44,7 @@ class Crystal_Lattice():
         self.latt_orientation = crystal_features[2]
         self.api_key = crystal_features[3]
         use_parallel = crystal_features[4]
+        facets_type = crystal_features[5]
 
         self.sticking_coefficient = experimental_conditions[0]
         self.partial_pressure = experimental_conditions[1]
@@ -54,6 +55,7 @@ class Crystal_Lattice():
         self.n_search_superbasin = superbasin_parameters[0]
         self.time_step_limits = superbasin_parameters[1]
         self.E_min = superbasin_parameters[2]
+        self.energy_step = superbasin_parameters[3]
         self.superbasin_dict = {}
         
         self.time = 0
@@ -67,12 +69,14 @@ class Crystal_Lattice():
         self.num_event = len(self.structure.get_neighbors(self.structure[0],3)) + 2
 
         self.Wulff_Shape()
-        self.create_edges()
+        self.create_edges(facets_type)
 
         self.sites_occupied = [] # Sites occupy be a chemical specie
         self.adsorption_sites = [] # Sites availables for deposition or migration
         #Transition rate for adsortion of chemical species
         self.transition_rate_adsorption(experimental_conditions[0:3])
+        
+        self.E_min_lim_superbasin = self.Act_E_ad * 0.9
         
         # Obtain all the positions in the grid that are supported by the
         # substrate or other deposited chemical species
@@ -303,7 +307,7 @@ class Crystal_Lattice():
         self.wulff_facets = sorted(self.wulff_facets,key = lambda x:x[0][0])
         
         
-    def create_edges(self):
+    def create_edges(self,facets_type):
         
         """
         To obtain the relation between the migration, the edges and the facets we first need:
@@ -340,34 +344,34 @@ class Crystal_Lattice():
                                                                                                                               edges):
                     edges[(neighbor[1],neighbors[j][1])] = np.array(neighbor[0]) - np.array(np.array(neighbors[j][0]))
         
-        
         # Calculate the facets that are parallel to each migration
         mig_directions = {neigh[1]:np.array(self.grid_crystal[neigh[0]].position) - np.array(self.grid_crystal[idx].position) for neigh in self.grid_crystal[idx].migration_paths['Plane']}
         mig_parallel_facets = {}
         #Search for the facets that are parallel to the migration direction
         for mig_direct,vector in mig_directions.items():
             facet_list = []
-            for facet in self.wulff_facets[:14]:
+            for facet in self.wulff_facets:
                 if (facet[1][2] > 0 and facet[1][2] != 1 and # Screen facets that are looking downward or parallel to the x-y plane
-                    abs(np.dot(facet[1][:2],vector[:2])) < 1e-12): # Parallel between facet normal vector (x-y) and migration direction
+                    abs(np.dot(facet[1][:2],vector[:2])) < 1e-12): # Perpendicular between facet normal vector (x-y) and migration direction
                         facet_list.append(facet)        
                     
             mig_parallel_facets[mig_direct] = facet_list
             
-                       
+                    
         # Calculate the edges parallel to the migration
         parallel_mig_direction_edges = {}
-        for mig,facet in mig_parallel_facets.items():
+        for mig,vector_dir in mig_directions.items():
             list_edges = []
+
             for edge,vector in edges.items():
-                if abs(np.dot(vector,facet[1][1])) < 1e-12:
+                if np.linalg.norm(np.cross(vector,vector_dir)) < 1e-12: # Migration vector is parallel to the edges
                     list_edges.append(edge)
                 
             parallel_mig_direction_edges[mig] = list_edges
             
-        
+
         # Associate edge with facets
-        # Edge is defined by two migrations: we sum them to obtain a vector that should be parallel to the facet
+        # Edge is defined by two migrations: we sum those vectors to obtain a vector that should be parallel to the facet normal vector
         self.dir_edge_facets = {}
         for mig,edges_2 in parallel_mig_direction_edges.items():
             aux_edge_facet = []
@@ -375,11 +379,16 @@ class Crystal_Lattice():
                 v1 = mig_directions[edge[0]] + mig_directions[edge[1]]
                 
                 for facet in mig_parallel_facets[mig]:
-                    if np.dot(v1,facet[1]) > 0:
+                    if np.dot(v1,facet[1]) > 0: # Pointing in the same direction
                        aux_edge_facet.append([edge,facet[0]])
                        
             self.dir_edge_facets[mig] = aux_edge_facet
             
+        self.dir_edge_facets = {
+            key: [sublist for sublist in value if sublist[1] in facets_type]
+            for key, value in self.dir_edge_facets.items()
+        }
+
         
     def available_adsorption_sites(self, update_supp_av = set()):
         
@@ -1029,13 +1038,13 @@ class Crystal_Lattice():
         
         grid_crystal = self.grid_crystal
         z_step = next((vec[2] for vec in self.basis_vectors if vec[2] > 0), None)
-        z_steps = int(self.crystal_size[2]/z_step + 1)
+        z_steps = round(self.crystal_size[2]/z_step + 1)
         layers = [0] * z_steps  # Initialize each layer separately
-        
+
         for site in grid_crystal.values():
             z_idx = int(round(site.position[2] / z_step))
             layers[z_idx] += 1 if site.chemical_specie != 'Empty' else 0
-            
+
         sites_per_layer = len(grid_crystal)/z_steps
         normalized_layers = [count / sites_per_layer for count in layers]
         # Number of sites occupied and percentage of occupation for each layer
@@ -1052,8 +1061,8 @@ class Crystal_Lattice():
         
         layers = self.layers[0]
         grid_crystal = self.grid_crystal
-        z_step = self.basis_vectors[0][2]
-        z_steps = int(self.crystal_size[2]/z_step + 1)
+        z_step = next((vec[2] for vec in self.basis_vectors if vec[2] > 0), None)
+        z_steps = round(self.crystal_size[2]/z_step + 1)
         sites_per_layer = len(grid_crystal)/z_steps
 
         area_per_site = self.crystal_size[0] * self.crystal_size[1] / sites_per_layer
@@ -1099,7 +1108,8 @@ class Crystal_Lattice():
         count_islands = [0] * len(normalized_layers)
         layers_no_complete = np.where(np.array(normalized_layers) != 1.0)
         count_islands[normalized_layers == 1] = 1
-        z_step = self.basis_vectors[0][2]
+        z_step = next((vec[2] for vec in self.basis_vectors if vec[2] > 0), None)
+
 
         islands_list = []
 
@@ -1340,7 +1350,7 @@ class Crystal_Lattice():
     def obtain_surface_coord(self):
         
         grid_crystal = self.grid_crystal
-        z_step = self.basis_vectors[0][2]
+        z_step = next((vec[2] for vec in self.basis_vectors if vec[2] > 0), None)
 
         x = []
         y = []
