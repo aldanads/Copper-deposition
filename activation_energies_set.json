@@ -111,6 +111,28 @@
 }
     },
     {
+      "name": "Au",
+      "activation_energies_111_template_upward (eV)": {
+        "plane_substrate": 0.117,
+        "upward_substrate_to_111": 0.089,
+        "downward_111_to_substrate": 0.244,
+        "upward_111": 0.089,
+        "downward_111": 0.244,
+        "upward_substrate_to_100": 0.133,
+        "downward_100_to_substrate": 0.262,
+        "surface_111": 0.117,
+        "surface_100": 0.531,
+        "edge_100": 0.352,      
+        "edge_111": 0.237,
+        "edge_111_on_substrate": null,
+        "edge_100_on_substrate": null,
+        "binding_energy": -0.24,
+        "Coordination_number_contribution": -0.18,
+        "Reference": ["10.1103/PhysRevB.76.245408"],
+        "Description": "Au film growing in 111 direction (homoepitaxial)"
+}
+    },
+    {
       "name": "Cu",
       "activation_energies_111_homoepitaxial (eV)": {
         "plane_substrate": 0.043,
@@ -197,7 +219,7 @@
         "downward_111_to_substrate": 0.095,
         "upward_111": 0.05,
         "downward_111": 0.095,
-        "upward_substrate_to_100": 0.15,
+        "upward_substrate_to_100": 0.05,
         "downward_100_to_substrate": 0.318,
         "surface_111": 0.043,
         "surface_100": 0.16,  
@@ -205,8 +227,8 @@
         "edge_111": 0.309,
         "edge_111_on_substrate": null,
         "edge_100_on_substrate": null,
-        "binding_energy": 0,
-        "Coordination_number_contribution": -0.15,
+        "binding_energy": -0.24,
+        "Coordination_number_contribution": -0.26,
         "Reference": [],
         "Description": "Cu template for varying activation energies for upward migration. Assuming easy migration on substrate"
       }

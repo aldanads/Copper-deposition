@@ -207,8 +207,21 @@ class Superbasin():
         
         # Calculate the fundamental matrix N
         I = np.eye(n_transient)
-        # self.N = np.linalg.inv(I - T_transient)
-        self.N = np.linalg.pinv(I - T_transient) # Pseudo-inverse 
+        I_reg = I - T_transient
+        
+        # Check for NaN or infinity values
+        if np.any(np.isnan(I_reg)) or np.any(np.isinf(I_reg)):
+            raise ValueError("I_reg = I - T_transient contains NaN or infinity values.")
+            
+            # Regularize the matrix
+        epsilon = 1e-10
+        I_reg += epsilon * np.eye(I_reg.shape[0])
+        # Calculate the pseudo-inverse with error handling
+        try:
+            self.N = np.linalg.pinv(I - T_transient) # Pseudo-inverse
+        except np.linalg.LinAlgError:
+            print("SVD did not converge. Regularizing the matrix further.")
+            self.N = np.linalg.pinv(I_reg + epsilon * np.eye(I_reg.shape[0]))
         
         # Calculate the absorption probabilities matrix B
         self.B_absorption = np.dot(self.N, R_recurrent) 
@@ -220,6 +233,10 @@ class Superbasin():
         # (first passage time - FPT)
         FPT = np.sum(self.N, axis=1)
         # Calculate transition_rates
+        
+        # Avoid division by zero or very small values
+        epsilon = 1e-10  # Small value to avoid division by zero
+        FPT[FPT < epsilon] = epsilon
         transition_rates = self.B_absorption / FPT[:, None]
         
         # We are only interested in the absorbing states
@@ -259,11 +276,13 @@ class Superbasin():
             # It should be occupied, but it is not
             if System_state.grid_crystal[site].chemical_specie != System_state.chemical_specie:
                 # Select deposition event
-                event = System_state.grid_crystal[site].site_events[0]
+                # event = System_state.grid_crystal[site].site_events[0]
                 # Remove the site from sites_occupied
-                System_state.sites_occupied.remove(event[1])
+                # System_state.sites_occupied.remove(event[1])
+                System_state.sites_occupied.remove(site)
                 # Introduce the particle
-                System_state.processes((event[0], event[1], event[2], event[1])) 
+                # System_state.processes((event[0], event[1], event[2], event[1])) 
+                System_state.processes((0, site, System_state.num_event-1, site)) 
 
         
       

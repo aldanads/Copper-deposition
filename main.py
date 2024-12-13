@@ -71,6 +71,7 @@ def main():
                 i+=1
           
                 System_state,KMC_time_step = KMC(System_state,rng)
+                
                 list_sites_occu.append(len(System_state.sites_occupied))
                 # print(len(System_state.sites_occupied))
                 # print('Time step: ', KMC_timels_step)

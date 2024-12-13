@@ -21,6 +21,7 @@ from pymatgen.ext.matproj import MPRester
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.core.periodic_table import Element
+from pymatgen.analysis.defects.generators import ChargeInterstitialGenerator
 
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
@@ -88,14 +89,26 @@ class Crystal_Lattice():
         self.lammps_file = lammps_file
 
     
-    def lattice_model(self):
+    def lattice_model(self,interstitial_specie,interstitial = False):
 
         # Initialize COD with the database URL
         # cod = COD()
         # self.structure_basic = cod.get_structure_by_id(self.id_material)
-        
-        mpr = MPRester(self.api_key)
-        structure = mpr.get_structure_by_material_id(self.id_material)
+        with MPRester(self.api_key) as mpr:
+            structure = mpr.get_structure_by_material_id(self.id_material)
+            
+            # If we want to include interstitial sites
+            if interstitial == True:
+                chgcar = mpr.get_charge_density_from_material_id(self.id_material) #Download charge density from MP
+                cig = ChargeInterstitialGenerator() # Defect generator based on charge density
+                defects = cig.generate(chgcar, insert_species=[interstitial_specie]) # Generate interstitial specie
+                for defect in defects:
+                    structure_with_interstitial = defect.defect_structure # Select one defect to obtain the structure including the defect
+                    
+        """
+        CREATE GRID_CRYSTAL BASED ONLY IN INTERSTITIAL
+        """                
+                
         sga = SpacegroupAnalyzer(structure)
         self.structure_basic = sga.get_conventional_standard_structure()
         
@@ -107,10 +120,10 @@ class Crystal_Lattice():
         if self.latt_orientation == '001':
             
             self.rotation_matrix = np.eye(3)
-            dimensions = [int(self.crystal_size[i] / self.structure.lattice.abc[i]) + 1 for i in range(3)]
-            self.basis_vectors = np.array(self.structure_basic.lattice.matrix)/2 # Basis vector in nm and half cell size
-            self.structure = self.structure_basic.copy()
-            self.structure.make_supercell(dimensions)
+            # dimensions = [int(self.crystal_size[i] / self.structure.lattice.abc[i]) + 1 for i in range(3)]
+            # self.basis_vectors = np.array(self.structure_basic.lattice.matrix)/2 # Basis vector in nm and half cell size
+            # self.structure = self.structure_basic.copy()
+            # self.structure.make_supercell(dimensions)
                         
         elif self.latt_orientation == '111':
             
@@ -121,19 +134,19 @@ class Crystal_Lattice():
                 [-1/np.sqrt(3), 1/np.sqrt(3), 1/np.sqrt(3)]
             ])
             
-            # Symmetry operation
-            symm_op = SymmOp.from_rotation_and_translation(self.rotation_matrix, [0, 0, 0])
+        # Symmetry operation
+        symm_op = SymmOp.from_rotation_and_translation(self.rotation_matrix, [0, 0, 0])
 
-            # Apply the rotation to the structure
-            self.structure_basic.apply_operation(symm_op)
-            # Divide by 2 because in each cell there are 4 atoms --> We need it to map into integer idx
-            self.basis_vectors = np.array(self.structure_basic.lattice.matrix)/2 # Basis vector in nm and half cell size
-            self.structure = self.structure_basic.copy()
+        # Apply the rotation to the structure
+        self.structure_basic.apply_operation(symm_op)
+        # Divide by 2 because in each cell there are 4 atoms --> We need it to map into integer idx
+        self.basis_vectors = np.array(self.structure_basic.lattice.matrix)/2 # Basis vector in nm and half cell size
+        self.structure = self.structure_basic.copy()
 
-            # Apply the CubicSupercellTransformation
-            min_dimension = max(self.crystal_size) 
-            transformation = CubicSupercellTransformation(min_length=min_dimension,force_90_degrees = True,step_size=0.3)
-            self.structure = transformation.apply_transformation(self.structure)
+        # Apply the CubicSupercellTransformation
+        min_dimension = max(self.crystal_size) 
+        transformation = CubicSupercellTransformation(min_length=min_dimension,force_90_degrees = True,step_size=0.3)
+        self.structure = transformation.apply_transformation(self.structure)
             
         self.crystal_size = self.structure.lattice.abc
             
