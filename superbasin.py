@@ -220,8 +220,13 @@ class Superbasin():
         try:
             self.N = np.linalg.pinv(I - T_transient) # Pseudo-inverse
         except np.linalg.LinAlgError:
-            print("SVD did not converge. Regularizing the matrix further.")
-            self.N = np.linalg.pinv(I_reg + epsilon * np.eye(I_reg.shape[0]))
+            print("SVD did not converge")
+            print(I - T_transient)
+            quit()
+            # self.N = np.linalg.pinv(I_reg + epsilon * np.eye(I_reg.shape[0]))
+            # self.B_absorption = np.zeros_like(R_recurrent)
+            # self.B_absorption.fill(1e-10)  # Tiny approximation to avoid pure zeros
+            # return
         
         # Calculate the absorption probabilities matrix B
         self.B_absorption = np.dot(self.N, R_recurrent) 

@@ -16,9 +16,7 @@ from pathlib import Path
 
 import pickle
 import shelve
-import os
 import time
-import concurrent.futures
 
 
 
@@ -38,7 +36,7 @@ def initialization(n_sim,save_data,lammps_file):
         if platform.system() == 'Windows': # When running in laptop
             dst = Path(r'\\FS1\Docs2\samuel.delgado\My Documents\Publications\Material deposition exploration\Simulations\Test')
         elif platform.system() == 'Linux': # HPC works on Linux
-            dst = Path(r'/sfiwork/samuel.delgado/Mapping/Cu/')
+            dst = Path(r'/sfiwork/samuel.delgado/Mapping/5nm/Cu/Substrate_range')
             
         paths,Results = save_simulation(files_copy,dst,n_sim) # Create folders and python files
         
@@ -76,10 +74,12 @@ def initialization(n_sim,save_data,lammps_file):
         #id_material_COD = 5000216 # Cu
         material_selection = {"Ni":"mp-23","Cu":"mp-30", "Pd": "mp-2","Ag":"mp-124","Pt":"mp-126","Au":"mp-81"}
         id_material_Material_Project = material_selection['Au']
-        crystal_size = (20,20,20) # (angstrom (Å))
+        crystal_size = (50,50,50) # (angstrom (Å))
         orientation = ['001','111']
         use_parallel = None
         facets_type = [(1,1,1),(1,0,0)]
+        interstitial_specie = 'Ag'
+        interstitial = False
 
         script_directory = Path(__file__).parent        # Get the config path from the environment variable or fallback to the current directory
         config_path = script_directory / 'config.json'
@@ -98,7 +98,7 @@ def initialization(n_sim,save_data,lammps_file):
             formula = material_summary[0].formula_pretty
 
             
-        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel,facets_type]
+        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel,facets_type,interstitial_specie,interstitial]
         
 # =============================================================================
 #             Superbasin parameters
@@ -166,12 +166,12 @@ def initialization(n_sim,save_data,lammps_file):
         E_mig_sub = E_dataset[0] # (eV)
         E_mig_upward_subs_layer111 = E_dataset[1]
         E_mig_downward_layer111_subs = E_dataset[2]
-        E_mig_upward_layer1_layer2_111 = E_dataset[3] * (0.6 + 0.2*n_sim)
+        E_mig_upward_layer1_layer2_111 = E_dataset[3] * (0.6 + 0.2 * n_sim)
         E_mig_downward_layer2_layer1_111 = E_dataset[4]
         E_mig_upward_subs_layer100 = E_dataset[5] 
         E_mig_downward_layer100_subs = E_dataset[6]
         E_mig_111_terrace_Cu = E_dataset[7]
-        E_mig_100_terrace_Cu = E_dataset[8] * (0.6 + 0.2*n_sim)
+        E_mig_100_terrace_Cu = E_dataset[8] * (0.6 + 0.2 * n_sim)
         E_mig_edge_100 = E_dataset[9]
         E_mig_edge_111 = E_dataset[10]
 
@@ -185,7 +185,7 @@ def initialization(n_sim,save_data,lammps_file):
         # =============================================================================
 
         # Binding energy | Desorption energy: https://doi.org/10.1039/D1SC04708F
-        binding_energy = E_dataset[-2] * (0.6 + 0.2*n_sim)
+        binding_energy = E_dataset[-2] * (0.6 + 0.2 * n_sim)
 
              
 

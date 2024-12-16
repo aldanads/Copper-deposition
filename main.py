@@ -40,12 +40,12 @@ from KMC import KMC
 import numpy as np
 import time
 
-save_data = False
-lammps_file = False
+save_data = True
+lammps_file = True
 
 def main():
 
-    for n_sim in range(0,1):
+    for n_sim in range(0,6):
         
         System_state,rng,paths,Results = initialization(n_sim,save_data,lammps_file)
         System_state.add_time()

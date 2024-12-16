@@ -22,9 +22,8 @@ from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from pymatgen.analysis.wulff import WulffShape
 from pymatgen.core.periodic_table import Element
 from pymatgen.analysis.defects.generators import ChargeInterstitialGenerator
+from pymatgen.core import Structure
 
-from concurrent.futures import ThreadPoolExecutor
-import concurrent.futures
 
 import json
 import os
@@ -46,7 +45,9 @@ class Crystal_Lattice():
         self.api_key = crystal_features[3]
         use_parallel = crystal_features[4]
         facets_type = crystal_features[5]
-
+        interstitial_specie = crystal_features[6]
+        interstitial = crystal_features[7]
+        
         self.sticking_coefficient = experimental_conditions[0]
         self.partial_pressure = experimental_conditions[1]
         self.temperature = experimental_conditions[2]
@@ -62,7 +63,7 @@ class Crystal_Lattice():
         self.time = 0
         self.list_time = []
         
-        self.lattice_model()
+        self.lattice_model(interstitial_specie,interstitial)
         self.crystal_grid(grid_crystal,use_parallel)
                 
         # Events corresponding to migrations + superbasin migration (+1) + deposition (+1)
@@ -98,25 +99,15 @@ class Crystal_Lattice():
             structure = mpr.get_structure_by_material_id(self.id_material)
             
             # If we want to include interstitial sites
-            if interstitial == True:
+            if interstitial:
                 chgcar = mpr.get_charge_density_from_material_id(self.id_material) #Download charge density from MP
                 cig = ChargeInterstitialGenerator() # Defect generator based on charge density
                 defects = cig.generate(chgcar, insert_species=[interstitial_specie]) # Generate interstitial specie
                 for defect in defects:
                     structure_with_interstitial = defect.defect_structure # Select one defect to obtain the structure including the defect
-                    
-        """
-        CREATE GRID_CRYSTAL BASED ONLY IN INTERSTITIAL
-        """                
+           
                 
-        sga = SpacegroupAnalyzer(structure)
-        self.structure_basic = sga.get_conventional_standard_structure()
-        
-        self.lattice_constants = tuple(np.array(self.structure_basic.lattice.abc)/10)
-        
-        
-        self.chemical_specie = self.structure_basic.composition.reduced_formula
-        
+           
         if self.latt_orientation == '001':
             
             self.rotation_matrix = np.eye(3)
@@ -134,19 +125,49 @@ class Crystal_Lattice():
                 [-1/np.sqrt(3), 1/np.sqrt(3), 1/np.sqrt(3)]
             ])
             
+        
+                    
         # Symmetry operation
         symm_op = SymmOp.from_rotation_and_translation(self.rotation_matrix, [0, 0, 0])
 
+        # If we are interested in the crystal structure (interstitial == False)
+        if interstitial == False:
+            sga = SpacegroupAnalyzer(structure)
+            self.structure_basic = sga.get_conventional_standard_structure()
+            self.chemical_specie = self.structure_basic.composition.reduced_formula
+
+        # If we are interested in the interstitial sites (interstitial == True)
+        else:
+            sga = SpacegroupAnalyzer(structure_with_interstitial)
+            self.structure_basic = sga.get_conventional_standard_structure()
+            self.chemical_specie = interstitial_specie
+            
+        self.lattice_constants = tuple(np.array(self.structure_basic.lattice.abc)/10)
+
         # Apply the rotation to the structure
         self.structure_basic.apply_operation(symm_op)
+        
         # Divide by 2 because in each cell there are 4 atoms --> We need it to map into integer idx
         self.basis_vectors = np.array(self.structure_basic.lattice.matrix)/2 # Basis vector in nm and half cell size
+        
         self.structure = self.structure_basic.copy()
 
+            
         # Apply the CubicSupercellTransformation
         min_dimension = max(self.crystal_size) 
         transformation = CubicSupercellTransformation(min_length=min_dimension,force_90_degrees = True,step_size=0.3)
-        self.structure = transformation.apply_transformation(self.structure)
+        
+        if interstitial == False:
+            self.structure = transformation.apply_transformation(self.structure)
+        else:
+            self.structure_with_interstitial = transformation.apply_transformation(self.structure)
+            self.structure = Structure(self.structure.lattice, [], [])
+            
+            print(self.structure_with_interstitial)
+            print(self.structure)
+            
+            quit()
+            
             
         self.crystal_size = self.structure.lattice.abc
             
@@ -156,7 +177,8 @@ class Crystal_Lattice():
             # Set default parallelization based on system size and cores
             if use_parallel is None:
                 use_parallel = len(self.structure) > 1600
-                
+                num_cores = self.get_num_cores()
+
                 
                 
             radius_neighbors = 3
@@ -210,9 +232,10 @@ class Crystal_Lattice():
             # Use ProcessPoolExecutor to parallelize the loop
             start_time = time.perf_counter()
             
-            if use_parallel:
+            if use_parallel and num_cores > 1:
+                
+                import concurrent.futures
                 # Parallel execution
-                num_cores = self.get_num_cores()
                 grid_keys = list(self.grid_crystal.keys())
                 # Calculate batch size based on the number of keys
                 batch_size = len(grid_keys) // num_cores
@@ -220,7 +243,7 @@ class Crystal_Lattice():
 
                 # Each process generates its dictionary 
                 results = []
-                with concurrent.futures.ProcessPoolExecutor() as executor:
+                with concurrent.futures.ProcessPoolExecutor(max_workers=num_cores) as executor:
                     results = list(executor.map(self.process_batch_site, batches))                
     
                 # Combine results from all processes: Merge dictionaries and combine missing sites
@@ -254,11 +277,11 @@ class Crystal_Lattice():
                 site.Act_E_list = self.activation_energies
 
     def get_num_cores(self):
-        return int(
-            os.environ.get('SLURM_CPUS_PER_TASK') or 
-            os.environ.get('PBS_NP') or 
-            os.cpu_count()
-        )        
+        cores_from_env = (os.environ.get('SLURM_CPUS_PER_TASK') or 
+            os.environ.get('PBS_NP'))        
+        # Default to 1 core if environment variables are not set
+        requested_cores = int(cores_from_env) if cores_from_env else 1
+        return requested_cores
                 
     def process_batch_site(self, batch):
 
@@ -759,19 +782,19 @@ class Crystal_Lattice():
                 self.grid_crystal[idx].available_migrations(self.grid_crystal,idx)
                 self.grid_crystal[idx].transition_rates(self.temperature)
    
-    def update_sites_2(self,update_specie_events,update_supp_av, batch_size=10):
+    # def update_sites_2(self,update_specie_events,update_supp_av, batch_size=10):
 
-        if update_supp_av:
-            with ThreadPoolExecutor() as executor:
-                # Split update_supp_av into batches
-                batches = [list(update_supp_av)[i:i + batch_size] for i in range(0, len(update_supp_av), batch_size)]
-                futures = []
+    #     if update_supp_av:
+    #         with ThreadPoolExecutor() as executor:
+    #             # Split update_supp_av into batches
+    #             batches = [list(update_supp_av)[i:i + batch_size] for i in range(0, len(update_supp_av), batch_size)]
+    #             futures = []
 
-                for batch in batches:
-                    futures.append(executor.submit(self.process_batch_update, batch, update_specie_events))
+    #             for batch in batches:
+    #                 futures.append(executor.submit(self.process_batch_update, batch, update_specie_events))
                         
-                for future in futures:
-                    future.result()  # Wait for all futures to complete
+    #             for future in futures:
+    #                 future.result()  # Wait for all futures to complete
                 
         
         if update_specie_events: 
