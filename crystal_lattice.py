@@ -39,46 +39,53 @@ class Crystal_Lattice():
     
     def __init__(self,crystal_features,experimental_conditions,Act_E_list,lammps_file,superbasin_parameters,grid_crystal = None):
         
+        # Crystal features
         self.id_material = crystal_features[0]
         self.crystal_size = crystal_features[1]
         self.latt_orientation = crystal_features[2]
-        self.api_key = crystal_features[3]
+        api_key = crystal_features[3]
         use_parallel = crystal_features[4]
         facets_type = crystal_features[5]
         interstitial_specie = crystal_features[6]
         interstitial = crystal_features[7]
+        radius_neighbors = crystal_features[8]
         
+        # Deposition
         self.sticking_coefficient = experimental_conditions[0]
         self.partial_pressure = experimental_conditions[1]
         self.temperature = experimental_conditions[2]
         self.experiment = experimental_conditions[3]
+        # Activation energies
         self.activation_energies = Act_E_list
         
+        #Superbasin parameters
         self.n_search_superbasin = superbasin_parameters[0]
         self.time_step_limits = superbasin_parameters[1]
         self.E_min = superbasin_parameters[2]
         self.energy_step = superbasin_parameters[3]
         self.superbasin_dict = {}
-        
+
         self.time = 0
         self.list_time = []
         
-        self.lattice_model(interstitial_specie,interstitial)
-        self.crystal_grid(grid_crystal,use_parallel)
+        # Crystal_grid generation
+        self.lattice_model(interstitial_specie,api_key,interstitial)
+        self.crystal_grid(grid_crystal,radius_neighbors,use_parallel)
                 
         # Events corresponding to migrations + superbasin migration (+1) + deposition (+1)
         # self.num_event = len(self.latt.get_neighbor_positions((0,0,0))) + 2
         self.num_event = len(self.structure.get_neighbors(self.structure[0],3)) + 2
 
-        self.Wulff_Shape()
+        # Wulff shape and edge types for this kind of material
+        self.Wulff_Shape(api_key)
         self.create_edges(facets_type)
 
         self.sites_occupied = [] # Sites occupy be a chemical specie
         self.adsorption_sites = [] # Sites availables for deposition or migration
         #Transition rate for adsortion of chemical species
         self.transition_rate_adsorption(experimental_conditions[0:3])
-        
-        self.E_min_lim_superbasin = self.Act_E_ad * 0.9
+        self.E_min_lim_superbasin = self.Act_E_ad * 0.9 # Don't create superbasin that include the deposition process
+
         
         # Obtain all the positions in the grid that are supported by the
         # substrate or other deposited chemical species
@@ -90,12 +97,9 @@ class Crystal_Lattice():
         self.lammps_file = lammps_file
 
     
-    def lattice_model(self,interstitial_specie,interstitial = False):
+    def lattice_model(self,interstitial_specie,api_key,interstitial = False):
 
-        # Initialize COD with the database URL
-        # cod = COD()
-        # self.structure_basic = cod.get_structure_by_id(self.id_material)
-        with MPRester(self.api_key) as mpr:
+        with MPRester(api_key) as mpr:
             structure = mpr.get_structure_by_material_id(self.id_material)
             
             # If we want to include interstitial sites
@@ -147,9 +151,13 @@ class Crystal_Lattice():
         # Apply the rotation to the structure
         self.structure_basic.apply_operation(symm_op)
         
+        """
+        TO CHOOSE THE SCALING FACTOR FOR THE BASIS VECTORS --> Search the smallest component of fractional coordinates
+        0.125 for Ag interstitial
+        0.5555 for Ag deposition
+        """
         # Divide by 2 because in each cell there are 4 atoms --> We need it to map into integer idx
-        self.basis_vectors = np.array(self.structure_basic.lattice.matrix)/2 # Basis vector in nm and half cell size
-        
+        self.basis_vectors = np.array(self.structure_basic.lattice.matrix)*0.125 # Basis vector in nm and half cell size
         self.structure = self.structure_basic.copy()
 
             
@@ -159,19 +167,21 @@ class Crystal_Lattice():
         
         if interstitial == False:
             self.structure = transformation.apply_transformation(self.structure)
+            self.crystal_size = self.structure.lattice.abc
+
         else:
             self.structure_with_interstitial = transformation.apply_transformation(self.structure)
             self.structure = Structure(self.structure.lattice, [], [])
             
-            print(self.structure_with_interstitial)
-            print(self.structure)
+            for site in self.structure_with_interstitial:
+                if site.specie.symbol == interstitial_specie:
+                    self.structure.append(site.specie, site.frac_coords)
             
-            quit()
+            self.crystal_size = self.structure_with_interstitial.lattice.abc
             
             
-        self.crystal_size = self.structure.lattice.abc
             
-    def crystal_grid(self,grid_crystal,use_parallel=None):
+    def crystal_grid(self,grid_crystal,radius_neighbors,use_parallel=None):
         
         if grid_crystal == None:
             # Set default parallelization based on system size and cores
@@ -179,9 +189,7 @@ class Crystal_Lattice():
                 use_parallel = len(self.structure) > 1600
                 num_cores = self.get_num_cores()
 
-                
-                
-            radius_neighbors = 3
+            
             self.coord_cache = {}
             
             # Step 1: Create the initial grid_crystal dictionary
@@ -223,10 +231,20 @@ class Crystal_Lattice():
                     
             # Step 3: Create labels for possible migration pathways  
             neighbors = self.structure.get_neighbors(self.structure[0], radius_neighbors)
+            print(len(neighbors))
+            print(neighbors)
+            print(self.basis_vectors)
+            print(self.structure[0].coords)
+            print(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))
+            for i,site in enumerate(neighbors):
+                print(self.get_idx_coords(site.coords,self.basis_vectors))
+                
+
             self.event_labels = {tuple(self.get_idx_coords(site.coords,self.basis_vectors) 
                                        - np.array(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))):i 
                             for i,site in enumerate(neighbors)}
-            
+            print(self.event_labels)
+            quit()
             
             # Step 4: Perform neighbor analysis
             # Use ProcessPoolExecutor to parallelize the loop
@@ -317,9 +335,9 @@ class Crystal_Lattice():
             return self.coord_cache[coords_tuple]
 
 
-    def Wulff_Shape(self):
+    def Wulff_Shape(self,api_key):
         
-        with MPRester(api_key=self.api_key) as mpr:
+        with MPRester(api_key=api_key) as mpr:
             surface_properties_doc = mpr.materials.surface_properties.search(
                 material_ids=self.id_material
                 )
@@ -797,22 +815,22 @@ class Crystal_Lattice():
     #                 future.result()  # Wait for all futures to complete
                 
         
-        if update_specie_events: 
-            # Sites are not available because a particle has migrated there
-            for idx in update_specie_events:
-                self.grid_crystal[idx].available_migrations(self.grid_crystal,idx)
-                self.grid_crystal[idx].transition_rates(self.temperature)
+        # if update_specie_events: 
+        #     # Sites are not available because a particle has migrated there
+        #     for idx in update_specie_events:
+        #         self.grid_crystal[idx].available_migrations(self.grid_crystal,idx)
+        #         self.grid_crystal[idx].transition_rates(self.temperature)
     
                 
-    def process_site_update(self, idx, update_specie_events):
-        self.grid_crystal[idx].supported_by(self.grid_crystal, self.wulff_facets[:,14],self.dir_edge_facets)
-        self.available_adsorption_sites([idx])
-        if self.grid_crystal[idx].chemical_specie != 'Empty':
-            update_specie_events.append(idx)
+    # def process_site_update(self, idx, update_specie_events):
+    #     self.grid_crystal[idx].supported_by(self.grid_crystal, self.wulff_facets[:,14],self.dir_edge_facets)
+    #     self.available_adsorption_sites([idx])
+    #     if self.grid_crystal[idx].chemical_specie != 'Empty':
+    #         update_specie_events.append(idx)
             
-    def process_batch_update(self, batch, update_specie_events):
-        for idx in batch:
-            self.process_site_update(idx, update_specie_events)
+    # def process_batch_update(self, batch, update_specie_events):
+    #     for idx in batch:
+    #         self.process_site_update(idx, update_specie_events)
 
 # =============================================================================
 #             Introduce particle

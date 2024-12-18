@@ -14,6 +14,7 @@ from pymatgen.ext.matproj import MPRester
 import json
 from pathlib import Path
 
+import os
 import pickle
 import shelve
 import time
@@ -31,12 +32,12 @@ def initialization(n_sim,save_data,lammps_file):
     
     if save_data:
         files_copy = ['initialization.py', 'crystal_lattice.py','Site.py','main.py','KMC.py',
-                      'balanced_tree.py','analysis.py','superbasin.py','activation_energies_set.json']
+                      'balanced_tree.py','analysis.py','superbasin.py','activation_energies_deposition.json']
         
         if platform.system() == 'Windows': # When running in laptop
             dst = Path(r'\\FS1\Docs2\samuel.delgado\My Documents\Publications\Material deposition exploration\Simulations\Test')
         elif platform.system() == 'Linux': # HPC works on Linux
-            dst = Path(r'/sfiwork/samuel.delgado/Mapping/5nm/Cu/Substrate_range')
+            dst = Path(r'/sfiwork/samuel.delgado/Mapping/5nm/Ag/Substrate_range')
             
         paths,Results = save_simulation(files_copy,dst,n_sim) # Create folders and python files
         
@@ -44,8 +45,8 @@ def initialization(n_sim,save_data,lammps_file):
         paths = {'data': ''}
         Results = []
         
-    experiments = ['deposition','annealing']
-    experiment = experiments[0]
+    experiments = ['deposition','annealing','ECM memristor']
+    experiment = experiments[2]
 
     if experiment == 'deposition':         
 # =============================================================================
@@ -71,15 +72,16 @@ def initialization(n_sim,save_data,lammps_file):
 #         Crystal structure
 #         
 # =============================================================================
-        #id_material_COD = 5000216 # Cu
         material_selection = {"Ni":"mp-23","Cu":"mp-30", "Pd": "mp-2","Ag":"mp-124","Pt":"mp-126","Au":"mp-81"}
-        id_material_Material_Project = material_selection['Au']
-        crystal_size = (50,50,50) # (angstrom (Å))
+        id_material_Material_Project = material_selection['Ag']
+        crystal_size = (20,20,20) # (angstrom (Å))
         orientation = ['001','111']
         use_parallel = None
         facets_type = [(1,1,1),(1,0,0)]
-        interstitial_specie = 'Ag'
+        interstitial_specie = None
         interstitial = False
+        radius_neighbors = 3
+
 
         script_directory = Path(__file__).parent        # Get the config path from the environment variable or fallback to the current directory
         config_path = script_directory / 'config.json'
@@ -98,7 +100,7 @@ def initialization(n_sim,save_data,lammps_file):
             formula = material_summary[0].formula_pretty
 
             
-        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel,facets_type,interstitial_specie,interstitial]
+        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel,facets_type,interstitial_specie,interstitial,radius_neighbors]
         
 # =============================================================================
 #             Superbasin parameters
@@ -146,7 +148,7 @@ def initialization(n_sim,save_data,lammps_file):
         Act_E_dataset = ['TaN','Ru25','Ru50','homoepitaxial','template_upward']  
         
         # Retrieve the activation energies
-        activation_energy_file = script_directory / 'activation_energies_set.json'
+        activation_energy_file = script_directory / 'activation_energies_deposition.json'
         with open(activation_energy_file, 'r') as file:
             data = json.load(file)
             
@@ -273,6 +275,73 @@ def initialization(n_sim,save_data,lammps_file):
         System_state.limit_kmc_timestep(P_limits)
         System_state.time = 0
         System_state.list_time = []
+        
+    elif experiment == 'ECM memristor':
+        # =============================================================================
+        #         Experimental conditions
+        #         
+        # =============================================================================
+        sticking_coeff = None       
+        partial_pressure = None # (Pa = N m^-2 = kg m^-1 s^-2)
+        temp = 300
+        T = temp # (K)
+        
+        experimental_conditions = [sticking_coeff,partial_pressure,T,experiment]
+        
+        # =============================================================================
+        #         Crystal structure
+        #         
+        # =============================================================================
+        material_selection = {"CeO2":"mp-20194"}
+        id_material_Material_Project = material_selection["CeO2"]
+        crystal_size = (20,20,20) # (angstrom (Å))
+        orientation = ['001']
+        use_parallel = None
+        facets_type = None
+        interstitial_specie = 'Ag'
+        interstitial = True
+        radius_neighbors = 1
+
+
+        script_directory = Path(__file__).parent        # Get the config path from the environment variable or fallback to the current directory
+        config_path = script_directory / 'config.json'
+        
+        
+        # Create a config.json file with the API key -> To avoid uploading to Github
+        with open(config_path) as config_file:
+            config = json.load(config_file)
+            api_key = config['api_key']
+        
+        mpr = MPRester(api_key)
+        # Retrieve material data
+        with MPRester(api_key) as mpr:
+            # Retrieve material summary information
+            material_summary = mpr.materials.summary.search(material_ids=[id_material_Material_Project])
+            formula = material_summary[0].formula_pretty
+
+
+        crystal_features = [id_material_Material_Project,crystal_size,orientation[0],api_key,use_parallel,facets_type,interstitial_specie,interstitial,radius_neighbors]
+        
+        # =============================================================================
+        #             Superbasin parameters
+        #     
+        # =============================================================================
+        n_search_superbasin = 25 # If the time step is very small during 10 steps, search for superbasin
+        time_step_limits = 1e-7 # Time needed for efficient evolution of the system
+        E_min = 0.0
+        energy_step = 0.05
+        superbasin_parameters = [n_search_superbasin,time_step_limits,E_min,energy_step]
+        
+        
+        # =============================================================================
+        #             Activation energies
+        #     
+        # =============================================================================
+        Act_E_list = [None]
+        
+        filename = 'grid_crystal'
+        System_state = initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
+              lammps_file,superbasin_parameters,save_data)  
 
     return System_state,rng,paths,Results
 

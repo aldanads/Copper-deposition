@@ -91,7 +91,7 @@
     {
       "name": "Au",
       "activation_energies_111_homoepitaxial (eV)": {
-        "plane_substrate": 0.117,
+        "plane_substrate": 0.117, 
         "upward_substrate_to_111": 0.089,
         "downward_111_to_substrate": 0.244,
         "upward_111": 0.089,

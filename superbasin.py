@@ -25,16 +25,30 @@ class Superbasin():
         self.particle_idx = idx
         self.E_min = E_min
         # Make a deep copy of System_state to avoid modifying the original object
+        self.epsilon_min_decrement = 0.1  # Step to decrease E_min per retr       
+        self.retry_limit = E_min / self.epsilon_min_decrement  # Maximum retry attempts
 
-        grid_crystal = System_state.grid_crystal
-        num_event = System_state.num_event
-        self.trans_absorbing_states(idx,System_state,sites_occupied)
+        attempt = 0
+        success = False
         
-        self.transition_matrix()
-        self.markov_matrix()
-        self.absorption_probability_matrix()
-        self.calculate_transition_rates_absorbing_states(num_event)
-        self.calculate_superbasin_environment(grid_crystal)
+        while attempt < self.retry_limit and not success:
+            try:
+                # Core workflow
+                self.trans_absorbing_states(idx,System_state,sites_occupied)
+                self.transition_matrix()
+                self.markov_matrix()
+                self.absorption_probability_matrix()
+                self.calculate_transition_rates_absorbing_states(System_state.num_event)
+                self.calculate_superbasin_environment(System_state.grid_crystal)
+                success = True  # If successful, break the loop
+                
+            except (np.linalg.LinAlgError, ValueError):
+                print(f"Attempt {attempt + 1}: SVD did not converge or error in calculations. Adjusting E_min.")
+                self.E_min -= self.epsilon_min_decrement  # Reduce E_min
+                attempt += 1
+                
+        if not success:
+            raise RuntimeError(f"Failed to initialize Superbasin after {self.retry_limit} attempts.")
 
    
     def trans_absorbing_states(self,start_idx,System_state,sites_occupied):
@@ -208,6 +222,12 @@ class Superbasin():
         # Calculate the fundamental matrix N
         I = np.eye(n_transient)
         I_reg = I - T_transient
+        
+        # Check for poor conditioning
+        cond_number = np.linalg.cond(I_reg)
+        if cond_number > 1e10:
+            raise ValueError(f"Matrix is poorly conditioned (cond = {cond_number}). Adjust regularization or inspect T_transient.")
+
         
         # Check for NaN or infinity values
         if np.any(np.isnan(I_reg)) or np.any(np.isinf(I_reg)):

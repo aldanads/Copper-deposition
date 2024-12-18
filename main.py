@@ -40,19 +40,19 @@ from KMC import KMC
 import numpy as np
 import time
 
-save_data = True
-lammps_file = True
+save_data = False
+lammps_file = False
 
 def main():
 
-    for n_sim in range(0,6):
+    for n_sim in range(0,1):
         
         System_state,rng,paths,Results = initialization(n_sim,save_data,lammps_file)
         System_state.add_time()
             
         System_state.plot_crystal(45,45,paths['data'],0)    
         j = 0
-
+    
         snapshoots_steps = int(5e1)
         starting_time = time.time()
     # =============================================================================
@@ -60,7 +60,7 @@ def main():
     # 
     # =============================================================================
         if System_state.experiment == 'deposition':   
-
+    
             nothing_happen = 0
             # list_time_step = []
             list_sites_occu = []
@@ -98,7 +98,7 @@ def main():
                         System_state.E_min = System_state.E_min_lim_superbasin
                     search_superbasin(System_state)
                     
-
+    
                     
                 # print('Superbasin E_min: ',System_state.E_min)
             
@@ -122,7 +122,7 @@ def main():
                     # if j == 5:
                     #     sys.exit()
                         
-
+    
     
     # =============================================================================
     #     Annealing  
