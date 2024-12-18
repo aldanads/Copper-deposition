@@ -58,6 +58,9 @@ def initialization(n_sim,save_data,lammps_file):
 #         Lee, Won-Jun, Sa-Kyun Rha, Seung-Yun Lee, Dong-Won Kim, and Chong-Ook Park. 
 #         "Effect of the pressure on the chemical vapor deposition of copper from copper hexafluoroacetylacetonate trimethylvinylsilane." 
 #         Thin Solid Films 305, no. 1-2 (1997): 254-258.
+# 
+#       "Chemical vapor deposition of Cu films from copper(I) cyclopentadienyl triethylphophine: Precursor
+#       characteristics and interplay between growth parameters and films morphology"
 # =============================================================================
         sticking_coeff = 1        
         partial_pressure = 113 # (Pa = N m^-2 = kg m^-1 s^-2)
@@ -81,6 +84,7 @@ def initialization(n_sim,save_data,lammps_file):
         interstitial_specie = None
         interstitial = False
         radius_neighbors = 3
+        sites_generation_layer = ['bottom_layer','top_layer']
 
 
         script_directory = Path(__file__).parent        # Get the config path from the environment variable or fallback to the current directory
@@ -100,7 +104,7 @@ def initialization(n_sim,save_data,lammps_file):
             formula = material_summary[0].formula_pretty
 
             
-        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel,facets_type,interstitial_specie,interstitial,radius_neighbors]
+        crystal_features = [id_material_Material_Project,crystal_size,orientation[1],api_key,use_parallel,facets_type,interstitial_specie,interstitial,radius_neighbors,sites_generation_layer[0]]
         
 # =============================================================================
 #             Superbasin parameters
@@ -300,7 +304,8 @@ def initialization(n_sim,save_data,lammps_file):
         facets_type = None
         interstitial_specie = 'Ag'
         interstitial = True
-        radius_neighbors = 1
+        radius_neighbors = 4
+        sites_generation_layer = ['bottom_layer','top_layer']
 
 
         script_directory = Path(__file__).parent        # Get the config path from the environment variable or fallback to the current directory
@@ -320,7 +325,7 @@ def initialization(n_sim,save_data,lammps_file):
             formula = material_summary[0].formula_pretty
 
 
-        crystal_features = [id_material_Material_Project,crystal_size,orientation[0],api_key,use_parallel,facets_type,interstitial_specie,interstitial,radius_neighbors]
+        crystal_features = [id_material_Material_Project,crystal_size,orientation[0],api_key,use_parallel,facets_type,interstitial_specie,interstitial,radius_neighbors,sites_generation_layer[1]]
         
         # =============================================================================
         #             Superbasin parameters

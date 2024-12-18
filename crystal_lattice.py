@@ -49,6 +49,7 @@ class Crystal_Lattice():
         interstitial_specie = crystal_features[6]
         interstitial = crystal_features[7]
         radius_neighbors = crystal_features[8]
+        self.sites_generation_layer = crystal_features[9]
         
         # Deposition
         self.sticking_coefficient = experimental_conditions[0]
@@ -69,23 +70,28 @@ class Crystal_Lattice():
         self.list_time = []
         
         # Crystal_grid generation
-        self.lattice_model(interstitial_specie,api_key,interstitial)
+        self.lattice_model(interstitial_specie,api_key,radius_neighbors,interstitial)
         self.crystal_grid(grid_crystal,radius_neighbors,use_parallel)
                 
         # Events corresponding to migrations + superbasin migration (+1) + deposition (+1)
         # self.num_event = len(self.latt.get_neighbor_positions((0,0,0))) + 2
         self.num_event = len(self.structure.get_neighbors(self.structure[0],3)) + 2
 
-        # Wulff shape and edge types for this kind of material
-        self.Wulff_Shape(api_key)
-        self.create_edges(facets_type)
-
         self.sites_occupied = [] # Sites occupy be a chemical specie
         self.adsorption_sites = [] # Sites availables for deposition or migration
+        
         #Transition rate for adsortion of chemical species
-        self.transition_rate_adsorption(experimental_conditions[0:3])
-        self.E_min_lim_superbasin = self.Act_E_ad * 0.9 # Don't create superbasin that include the deposition process
-
+        if self.experiment != 'ECM memristor':
+            self.transition_rate_adsorption(experimental_conditions[0:3])
+            self.E_min_lim_superbasin = self.Act_E_ad * 0.9 # Don't create superbasin that include the deposition process
+            # Wulff shape and edge types for this kind of material
+            self.Wulff_Shape(api_key)
+            self.create_edges(facets_type)
+            
+        else:
+            self.wulff_facets = None
+            self.dir_edge_facets = None
+            self.TR_gen = 0.5
         
         # Obtain all the positions in the grid that are supported by the
         # substrate or other deposited chemical species
@@ -97,7 +103,7 @@ class Crystal_Lattice():
         self.lammps_file = lammps_file
 
     
-    def lattice_model(self,interstitial_specie,api_key,interstitial = False):
+    def lattice_model(self,interstitial_specie,api_key,radius_neighbors,interstitial = False):
 
         with MPRester(api_key) as mpr:
             structure = mpr.get_structure_by_material_id(self.id_material)
@@ -151,13 +157,7 @@ class Crystal_Lattice():
         # Apply the rotation to the structure
         self.structure_basic.apply_operation(symm_op)
         
-        """
-        TO CHOOSE THE SCALING FACTOR FOR THE BASIS VECTORS --> Search the smallest component of fractional coordinates
-        0.125 for Ag interstitial
-        0.5555 for Ag deposition
-        """
         # Divide by 2 because in each cell there are 4 atoms --> We need it to map into integer idx
-        self.basis_vectors = np.array(self.structure_basic.lattice.matrix)*0.125 # Basis vector in nm and half cell size
         self.structure = self.structure_basic.copy()
 
             
@@ -171,7 +171,7 @@ class Crystal_Lattice():
 
         else:
             self.structure_with_interstitial = transformation.apply_transformation(self.structure)
-            self.structure = Structure(self.structure.lattice, [], [])
+            self.structure = Structure(self.structure_with_interstitial.lattice, [], [])
             
             for site in self.structure_with_interstitial:
                 if site.specie.symbol == interstitial_specie:
@@ -179,7 +179,14 @@ class Crystal_Lattice():
             
             self.crystal_size = self.structure_with_interstitial.lattice.abc
             
-            
+        # Scaling factor for the basis_vectors
+        # Find the minimum non-zero element of fractional coordinates greater than zero to find the scaling factor
+        min_non_zero_element = min([
+            np.min(site.frac_coords[site.frac_coords > 1e-10]) for site in self.structure if np.any(site.frac_coords > 1e-10)
+            ])
+        
+        self.basis_vectors = np.array(self.structure.lattice.matrix) * min_non_zero_element  # Basis vector in nm and half cell size
+
             
     def crystal_grid(self,grid_crystal,radius_neighbors,use_parallel=None):
         
@@ -215,9 +222,11 @@ class Crystal_Lattice():
                 # Some sites are not created with the dictionary comprenhension
                 # If the sites have neighbors that are within the crystal dimension range
                 # but not included, we included
+                domain_height = tol
                 for neigh_idx,pos in zip(neighbors_idx,neighbors_positions):
                     
-                    
+                    if pos[2] > domain_height:
+                        domain_height = pos[2]
                     if (neigh_idx not in self.grid_crystal) and (-tol <= pos[2] <= self.crystal_size[2] + tol): 
                 
                         pos_aux = (pos[0] % self.crystal_size[0], pos[1] % self.crystal_size[1], pos[2])
@@ -227,24 +236,15 @@ class Crystal_Lattice():
                            self.grid_crystal[neigh_idx] = Site("Empty",
                                 tuple(pos),
                                 self.activation_energies)
-                     
+                
+                self.domain_height = domain_height
                     
             # Step 3: Create labels for possible migration pathways  
             neighbors = self.structure.get_neighbors(self.structure[0], radius_neighbors)
-            print(len(neighbors))
-            print(neighbors)
-            print(self.basis_vectors)
-            print(self.structure[0].coords)
-            print(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))
-            for i,site in enumerate(neighbors):
-                print(self.get_idx_coords(site.coords,self.basis_vectors))
-                
 
             self.event_labels = {tuple(self.get_idx_coords(site.coords,self.basis_vectors) 
                                        - np.array(self.get_idx_coords(self.structure[0].coords,self.basis_vectors))):i 
                             for i,site in enumerate(neighbors)}
-            print(self.event_labels)
-            quit()
             
             # Step 4: Perform neighbor analysis
             # Use ProcessPoolExecutor to parallelize the loop
@@ -276,12 +276,11 @@ class Crystal_Lattice():
                     neighbors_positions = [neigh.coords for neigh in neighbors]
                     neighbors_idx = [self.get_idx_coords(neigh.coords,self.basis_vectors) for neigh in neighbors]
                 
-
                     site.neighbors_analysis(
                         self.grid_crystal, neighbors_idx, neighbors_positions,
                         self.crystal_size, self.event_labels, idx
                         )
-                    
+                
                     
             end_time = time.perf_counter()
             elapsed_time = end_time - start_time
@@ -444,13 +443,14 @@ class Crystal_Lattice():
         }
 
         
-    def available_adsorption_sites(self, update_supp_av = set()):
+    def available_generation_sites(self, sites_generation_layer,update_supp_av = set()):
+        
         
         
         if not update_supp_av:
             self.adsorption_sites = [
                 idx for idx, site in self.grid_crystal.items()
-                if ('Substrate' in site.supp_by or len(site.supp_by) > 2) and site.chemical_specie == 'Empty'
+                if (sites_generation_layer in site.supp_by or len(site.supp_by) > 2) and site.chemical_specie == 'Empty'
                 ]
                     
                     
@@ -459,14 +459,14 @@ class Crystal_Lattice():
             for idx in update_supp_av:
                 site = self.grid_crystal[idx]
                 if idx in adsorption_sites_set:
-                    if (('Substrate' not in site.supp_by and len(site.supp_by) < 3) or (site.chemical_specie != 'Empty')):
+                    if ((sites_generation_layer not in site.supp_by and len(site.supp_by) < 3) or (site.chemical_specie != 'Empty')):
                         self.adsorption_sites.remove(idx)
                         site.remove_event_type(self.num_event-1)
                     
                 else:
-                    if ('Substrate' in site.supp_by or len(site.supp_by) > 2) and site.chemical_specie == 'Empty':
+                    if (sites_generation_layer in site.supp_by or len(site.supp_by) > 2) and site.chemical_specie == 'Empty':
                         self.adsorption_sites.append(idx)
-                        site.deposition_event(self.TR_ad,idx,self.num_event-1,self.Act_E_ad)
+                        site.deposition_event(self.TR_gen,idx,self.num_event-1,self.Act_E_ad)
         
                     
     def transition_rate_adsorption(self,experimental_conditions):
@@ -495,16 +495,16 @@ class Crystal_Lattice():
         area_specie = 1e-18 *self.crystal_size[0] * self.crystal_size[1] / n_sites_layer_0
         
         # Boltzmann constant (m^2 kg s^-2 K^-1)
-        self.TR_ad = sticking_coeff * partial_pressure * area_specie / np.sqrt(2 * constants.pi * self.mass_specie * constants.Boltzmann * T)
+        self.TR_gen = sticking_coeff * partial_pressure * area_specie / np.sqrt(2 * constants.pi * self.mass_specie * constants.Boltzmann * T)
     
         # Activation energy for deposition
         kb = constants.physical_constants['Boltzmann constant in eV/K'][0]
         nu0=7E12;  # nu0 (s^-1) bond vibration frequency
-        self.Act_E_ad = -np.log(self.TR_ad/nu0) * kb * self.temperature
+        self.Act_E_ad = -np.log(self.TR_gen/nu0) * kb * self.temperature
         
     def limit_kmc_timestep(self,P_limits):
         
-        self.timestep_limits = -np.log(1-P_limits)/self.TR_ad
+        self.timestep_limits = -np.log(1-P_limits)/self.TR_gen
         
     
 
@@ -515,7 +515,7 @@ class Crystal_Lattice():
         
         if test == 0:
             
-            P = 1-np.exp(-self.TR_ad*t) # Adsorption probability in time t
+            P = 1-np.exp(-self.TR_gen*t) # Adsorption probability in time t
             # Indexes of sites availables: supported by substrates or other species
             for idx in self.adsorption_sites:
                 if rng.random() < P:   
@@ -790,9 +790,9 @@ class Crystal_Lattice():
             # There are new sites supported by the deposited chemical species
             # For loop over neighbors
             for idx in update_supp_av:
-                self.grid_crystal[idx].supported_by(self.grid_crystal,self.wulff_facets[:14],
-                                                    self.dir_edge_facets,self.chemical_specie)
-            self.available_adsorption_sites(update_supp_av)
+                self.grid_crystal[idx].supported_by(self.grid_crystal,self.wulff_facets,
+                                                    self.dir_edge_facets,self.chemical_specie,self.domain_height)
+            self.available_generation_sites(self.sites_generation_layer,update_supp_av)
         
         if update_specie_events: 
             # Sites are not available because a particle has migrated there
@@ -857,7 +857,7 @@ class Crystal_Lattice():
             # Extend update_specie_events with sites that are not 'Substrate'
             update_specie_events.update(
                 idx_site for idx_site in self.grid_crystal[idx_supp_site].supp_by 
-                if idx_site != 'Substrate' and self.grid_crystal[idx_site].chemical_specie != 'Empty'
+                if idx_site != 'bottom_layer' and self.grid_crystal[idx_site].chemical_specie != 'Empty'
                 )
               # Need to check if this is empty or not because we haven't updated yet self.grid_crystal[idx_supp_site].supp_by
               # We don't want to update_specie_events of ghost particles that are "supporting" something
@@ -893,10 +893,10 @@ class Crystal_Lattice():
         # or the activation energy
         for idx_supp_site in update_supp_av:
             
-            # Extend update_specie_events with sites that are not 'Substrate'
+            # Extend update_specie_events with sites that are not 'bottom_layer'
             update_specie_events.update(
                 {idx_site for idx_site in self.grid_crystal[idx_supp_site].supp_by 
-                 if idx_site != 'Substrate' and self.grid_crystal[idx_site].chemical_specie != 'Empty'} 
+                 if idx_site != 'bottom_layer' and self.grid_crystal[idx_site].chemical_specie != 'Empty'} 
                 ) # Need to check if this is empty or not because we haven't updated yet self.grid_crystal[idx_supp_site].supp_by
                   # We don't want to update_specie_events of ghost particles that are "supporting" something
                   # Case: The support of the particle we have just eliminated (idx) hasn't been removed yet from self.grid_crystal[idx_supp_site].supp_by
@@ -926,7 +926,9 @@ class Crystal_Lattice():
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         
-        x,y,z = zip(*self.positions_cartesian)
+        positions_cartesian = [site.position for site in self.grid_crystal.values()]
+        
+        x,y,z = zip(*positions_cartesian)
         
         ax.scatter3D(x, y, z, c='blue', marker='o')
         ax.set_aspect('equal', 'box')
@@ -964,7 +966,7 @@ class Crystal_Lattice():
     
             axa.set_xlim([0, self.crystal_size[0]]) 
             axa.set_ylim([0, self.crystal_size[1]])
-            axa.set_zlim([0, self.crystal_size[2] * 0.4])
+            axa.set_zlim([0, self.crystal_size[2]])
             axa.set_aspect('equal', 'box')
             
             axb.set_xlabel('x-axis (Angstrom)')
@@ -974,7 +976,7 @@ class Crystal_Lattice():
     
             axb.set_xlim([0, self.crystal_size[0]]) 
             axb.set_ylim([0, self.crystal_size[1]])
-            axb.set_zlim([0, self.crystal_size[2] * 0.4])
+            axb.set_zlim([0, self.crystal_size[2]])
             axb.set_aspect('equal', 'box')
     
     
@@ -1145,7 +1147,7 @@ class Crystal_Lattice():
         histogram_neighbors = [0] * (len(self.latt.get_neighbors(0,0,0)) + 1)
         
         for site in sites_occupied:
-            if 'Substrate' in grid_crystal[site].supp_by: 
+            if 'bottom_layer' in grid_crystal[site].supp_by: 
                 histogram_neighbors[len(grid_crystal[site].supp_by)-1] += 1
             else:
                 histogram_neighbors[len(grid_crystal[site].supp_by)] += 1
@@ -1420,7 +1422,7 @@ class Crystal_Lattice():
                 y.append(site.position[1])
                 z.append(site.position[2]+z_step)
                 
-            elif (site.chemical_specie == 'Empty') and ('Substrate' in site.supp_by) and top_layer_empty_sites >= 2:
+            elif (site.chemical_specie == 'Empty') and ('bottom_layer' in site.supp_by) and top_layer_empty_sites >= 2:
                 x.append(site.position[0])
                 y.append(site.position[1])
                 z.append(site.position[2])

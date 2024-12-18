@@ -48,12 +48,13 @@ def main():
     for n_sim in range(0,1):
         
         System_state,rng,paths,Results = initialization(n_sim,save_data,lammps_file)
+        
         System_state.add_time()
             
         System_state.plot_crystal(45,45,paths['data'],0)    
         j = 0
     
-        snapshoots_steps = int(5e1)
+        snapshoots_steps = int(5e0)
         starting_time = time.time()
     # =============================================================================
     #     Deposition
@@ -73,13 +74,8 @@ def main():
                 System_state,KMC_time_step = KMC(System_state,rng)
                 
                 list_sites_occu.append(len(System_state.sites_occupied))
-                # print(len(System_state.sites_occupied))
-                # print('Time step: ', KMC_timels_step)
-                # print('Mean time last steps: ',np.mean(list_time_step[-System_state.n_search_superbasin:]))
-                # list_time_step.append(KMC_time_step)
-                # print(nothing_happen)
+                
                 if np.mean(list_sites_occu[-System_state.n_search_superbasin:]) == len(System_state.sites_occupied):
-                    # print('Mean: ',np.mean(list_sites_occu[-System_state.n_search_superbasin:]))
                 # if np.mean(list_time_step[-System_state.n_search_superbasin:]) <= System_state.time_step_limits:
                     nothing_happen +=1    
                 else:
@@ -107,8 +103,6 @@ def main():
                     
                     j+=1
                     System_state.measurements_crystal()
-                    # print(str(j)+"/"+str(int(total_steps/snapshoots_steps)),'| Total time: ',System_state.list_time[-1])
-                    # print(str(System_state.list_time[-1]/time_limit * 100) + ' %','| Total time: ',System_state.list_time[-1])
                     print(str(System_state.thickness/thickness_limit * 100) + ' %','| Thickness: ', System_state.thickness, '| Total time: ',System_state.list_time[-1])
                     end_time = time.time()
                     if save_data:
@@ -149,6 +143,29 @@ def main():
                         Results.measurements_crystal(System_state.list_time[-1],System_state.mass_gained,System_state.fraction_sites_occupied,
                                                       System_state.thickness,np.mean(np.array(System_state.terraces)[np.array(System_state.terraces) > 0]),np.std(np.array(System_state.terraces)[np.array(System_state.terraces) > 0]),max(System_state.terraces),
                                                       System_state.surf_roughness_RMS,end_time-starting_time)
+                        
+                    System_state.plot_crystal(45,45,paths['data'],j)
+                    
+        elif System_state.experiment == 'ECM memristor':
+            
+            i = 0
+            total_steps = int(100)
+            # System_state.measurements_crystal()
+            while j*snapshoots_steps < total_steps:
+                
+                i+=1
+                System_state,KMC_time_step = KMC(System_state,rng)
+                
+                if i%snapshoots_steps== 0:
+                    System_state.add_time()
+                    j+=1
+                    # System_state.measurements_crystal()
+                    print(str(j)+"/"+str(int(total_steps/snapshoots_steps)),'| Total time: ',System_state.list_time[-1])
+                    end_time = time.time()
+                    # if save_data:
+                        # Results.measurements_crystal(System_state.list_time[-1],System_state.mass_gained,System_state.fraction_sites_occupied,
+                        #                               System_state.thickness,np.mean(np.array(System_state.terraces)[np.array(System_state.terraces) > 0]),np.std(np.array(System_state.terraces)[np.array(System_state.terraces) > 0]),max(System_state.terraces),
+                        #                               System_state.surf_roughness_RMS,end_time-starting_time)
                         
                     System_state.plot_crystal(45,45,paths['data'],j)
     
