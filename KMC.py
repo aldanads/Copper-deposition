@@ -52,13 +52,13 @@ def KMC(System_state,rng):
     # If the time step is big because of the TR, we need to allow the deposition process to occur
     # We establish a time step limits that the deposition is relevant
     if time_step > System_state.timestep_limits:
-
         time_step = System_state.timestep_limits
         if rng.random() < 1-np.exp(-sumTR*time_step):
             System_state.processes(chosen_event)
 
     else:
         System_state.processes(chosen_event)
+        
     System_state.track_time(time_step)  
     System_state.update_superbasin(chosen_event)
     

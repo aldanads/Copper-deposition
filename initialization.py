@@ -23,9 +23,9 @@ import time
 
 def initialization(n_sim,save_data,lammps_file):
     
-    # seed = 1
+    seed = 1
     # Random seed as time
-    rng = np.random.default_rng() # Random Number Generator (RNG) object
+    rng = np.random.default_rng(seed) # Random Number Generator (RNG) object
 
     # Default resolution for figures
     plt.rcParams["figure.dpi"] = 100 # Default value of dpi = 300
@@ -221,8 +221,8 @@ def initialization(n_sim,save_data,lammps_file):
 
         # The minimum energy to select transition pathways to create a superbasin should be smaller
         # than the adsorption energy
-        print(f"Minimum energy for superbasin {superbasin_parameters[2]} and activation energy for adsorption {System_state.Act_E_ad}")
-        if superbasin_parameters[2] > System_state.Act_E_ad:
+        print(f"Minimum energy for superbasin {superbasin_parameters[2]} and activation energy for adsorption {System_state.Act_E_gen}")
+        if superbasin_parameters[2] > System_state.Act_E_gen:
             raise ValueError(f"Minimum energy for superbasin {superbasin_parameters[2]} is greater than activation energy for adsorption {System_state.Act_E_ad}")
             import sys
             sys.exit(1)
@@ -342,11 +342,43 @@ def initialization(n_sim,save_data,lammps_file):
         #             Activation energies
         #     
         # =============================================================================
-        Act_E_list = [None]
+        # Retrieve the activation energies
+        activation_energy_file = script_directory / 'activation_energies_memristors.json'
+        with open(activation_energy_file, 'r') as file:
+            data = json.load(file)
+            
+        E_dataset = []
+        for interstitial in data['ECM']:
+            # Search the selected element we retrieved from Materials Project
+            if interstitial['Interstitial_specie'] == interstitial_specie:
+                
+                #Search the activation energies
+                for key,activation_energies in interstitial.items():
+                    if 'activation_energies' in key:
+                        # Select the dataset
+                        for act_energy in activation_energies.values():
+                            if isinstance(act_energy, (int, float)):
+                                E_dataset.append(act_energy)
+                                
+        E_gen_defect = E_dataset[0] # (eV)
+        E_mig_plane = E_dataset[1]
+        E_mig_upward = E_dataset[2]
+        E_mig_downward = E_dataset[3] 
+        binding_energy_bottom_layer = E_dataset[-2]
+
+        clustering_energy = E_dataset[-1]
+        E_clustering = [0,0,clustering_energy * 2,clustering_energy * 3,clustering_energy * 4,clustering_energy * 5,clustering_energy * 6,clustering_energy * 7,clustering_energy * 8,clustering_energy * 9,clustering_energy * 10,clustering_energy * 11,clustering_energy * 12,clustering_energy * 13] 
+
+        Act_E_list = [E_gen_defect, E_mig_plane, E_mig_upward,E_mig_downward,
+                      binding_energy_bottom_layer,E_clustering] 
+        
         
         filename = 'grid_crystal'
         System_state = initialize_grid_crystal(filename,crystal_features,experimental_conditions,Act_E_list, 
               lammps_file,superbasin_parameters,save_data)  
+        
+        # This timestep_limits will depend on the V/s ratio
+        System_state.timestep_limits = float('inf')
 
     return System_state,rng,paths,Results
 
@@ -412,8 +444,9 @@ def search_superbasin(System_state):
     for idx in sites_occupied:
         for event in System_state.grid_crystal[idx].site_events:
             if (idx not in System_state.superbasin_dict) and (event[3] <= System_state.E_min):
-
-                System_state.superbasin_dict.update({idx: Superbasin(idx, System_state, System_state.E_min,sites_occupied)})
+                superbasin = Superbasin(idx, System_state, System_state.E_min,sites_occupied)
+                if superbasin.valid:    
+                    System_state.superbasin_dict.update({idx: superbasin})
     
     # Record the end time
     end_time = time.time()
@@ -423,7 +456,7 @@ def search_superbasin(System_state):
     if elapsed_time > 300 and System_state.E_min_lim_superbasin > System_state.energy_step:
         System_state.E_min -= System_state.energy_step
     # print(f"Elapsed time superbasin: {elapsed_time} seconds")    
-    # print("Superbasins generated: ",len(System_state.superbasin_dict))
+    print("Superbasins generated: ",len(System_state.superbasin_dict))
         
 
 def save_simulation(files_copy,dst,n_sim):

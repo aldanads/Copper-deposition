@@ -159,6 +159,7 @@ class Site():
             if 'bottom_layer' in self.supp_by:
                 self.energy_site = self.Act_E_list[-1][len(self.supp_by)] + self.Act_E_list[-2]
             else:
+                
                 self.energy_site = self.Act_E_list[-1][len(self.supp_by)+1]
                 
                 # Store the result in the cache
@@ -209,152 +210,135 @@ class Site():
         self.site_events = []
 
     # Calculate posible migration sites
-    def available_migrations(self,grid_crystal,idx_origin):
-      
-# =============================================================================
-#         Lü, B., Almyras, G. A., Gervilla, V., Greene, J. E., & Sarakinos, K. (2018). 
-#         Formation and morphological evolution of self-similar 3D nanostructures on weakly interacting substrates. 
-#         Physical Review Materials, 2(6). https://doi.org/10.1103/PhysRevMaterials.2.063401
-#         - Number of nearest neighbors needed to support a site so a particle can migrate there
-# =============================================================================
-        new_site_events = []
-
-        # Plane migrations
-        for site_idx, num_event in self.migration_paths['Plane']:
-            if site_idx not in self.supp_by and ('bottom_layer' in grid_crystal[site_idx].supp_by or len(grid_crystal[site_idx].supp_by) > 2):
-                energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
-                energy_change = max(energy_site_destiny - self.energy_site, 0)
-                
-                # Migrating on the substrate
-                if 'bottom_layer' in self.supp_by:
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[0] + energy_change])
-                    
-                # Migrating on the film (111)
-                elif grid_crystal[site_idx].wulff_facet == (1,1,1):
-                    if self.edges_v[num_event] == None: 
-                        new_site_events.append([site_idx, num_event, self.Act_E_list[7] + energy_change])
-                    elif self.edges_v[num_event] == (1,1,1):
-                        new_site_events.append([site_idx, num_event, self.Act_E_list[10] + energy_change])
-                    elif self.edges_v[num_event] == (1,0,0):
-                        new_site_events.append([site_idx, num_event, self.Act_E_list[9] + energy_change])
-                        
-                # Migrating on the film (100)
-                elif grid_crystal[site_idx].wulff_facet == (1,0,0):
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[8] + energy_change])
-
-
-# =============================================================================
-#         Kondati Natarajan, S., Nies, C. L., & Nolan, M. (2020). 
-#         The role of Ru passivation and doping on the barrier and seed layer properties of Ru-modified TaN for copper interconnects. 
-#         Journal of Chemical Physics, 152(14). https://doi.org/10.1063/5.0003852
-#   
-#         - Migration upward stable is supported by three particles??  
-# =============================================================================                      
-        # Upward migrations
-        for site_idx, num_event in self.migration_paths['Up']:
+    def available_migrations(self,grid_crystal,idx_origin,facets_type):
         
-# =============================================================================
-#             """
-#             Same activation energy and num_event than normal upward migrations
-#             """
-#             VERY EXPENSIVE to include 2nd nearest neighbors in the migration
-# 
-#             # Second nearest neighbors: 1 jump upward + 1 jump in plane --> Facilitate migration between layers without crossing the edge (only two neighbors supporting)
-#             for next_neighbor in grid_crystal[site_idx].migration_paths['Plane']:
-#                 # Supported by at least 2 particles (this site is far)
-#                 if grid_crystal[next_neighbor[0]].chemical_specie == 'Empty' and len(grid_crystal[next_neighbor[0]].supp_by) > 1:
-#                     energy_site_destiny = self.calculate_clustering_energy(grid_crystal[next_neighbor[0]].supp_by,idx_origin)
-#                     energy_change = max(energy_site_destiny - self.energy_site, 0)
-#                     new_site_events.append([next_neighbor[0], num_event, act_energy + energy_change])
-# 
-# =============================================================================
-                # First nearest neighbors: 1 jump upward
-                # Supported by at least 2 particles (excluding this site)
-
-            if site_idx not in self.supp_by and len(grid_crystal[site_idx].supp_by) > 2:
-                energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
-                energy_change = max(energy_site_destiny - self.energy_site, 0)
-               
-                # Migrating upward from the substrate
-                if 'bottom_layer' in self.supp_by and grid_crystal[site_idx].wulff_facet == (1,1,1):
+        # Deposition experiments
+        if facets_type is not None:
+    # =============================================================================
+    #         Lü, B., Almyras, G. A., Gervilla, V., Greene, J. E., & Sarakinos, K. (2018). 
+    #         Formation and morphological evolution of self-similar 3D nanostructures on weakly interacting substrates. 
+    #         Physical Review Materials, 2(6). https://doi.org/10.1103/PhysRevMaterials.2.063401
+    #         - Number of nearest neighbors needed to support a site so a particle can migrate there
+    # =============================================================================
+            new_site_events = []
+    
+            # Plane migrations
+            for site_idx, num_event in self.migration_paths['Plane']:
+                if site_idx not in self.supp_by and ('bottom_layer' in grid_crystal[site_idx].supp_by or len(grid_crystal[site_idx].supp_by) > 2):
+                    energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
+                    energy_change = max(energy_site_destiny - self.energy_site, 0)
+                    
+                    # Migrating on the substrate
+                    if 'bottom_layer' in self.supp_by:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[0] + energy_change])
+                        
+                    # Migrating on the film (111)
+                    elif grid_crystal[site_idx].wulff_facet == facets_type[0]:
+                        if self.edges_v[num_event] == None: 
+                            new_site_events.append([site_idx, num_event, self.Act_E_list[7] + energy_change])
+                        elif self.edges_v[num_event] == facets_type[0]:
+                            new_site_events.append([site_idx, num_event, self.Act_E_list[10] + energy_change])
+                        elif self.edges_v[num_event] == facets_type[1]:
+                            new_site_events.append([site_idx, num_event, self.Act_E_list[9] + energy_change])
+                            
+                    # Migrating on the film (100)
+                    elif grid_crystal[site_idx].wulff_facet == facets_type[1]:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[8] + energy_change])
+    
+    
+    # =============================================================================
+    #         Kondati Natarajan, S., Nies, C. L., & Nolan, M. (2020). 
+    #         The role of Ru passivation and doping on the barrier and seed layer properties of Ru-modified TaN for copper interconnects. 
+    #         Journal of Chemical Physics, 152(14). https://doi.org/10.1063/5.0003852
+    #   
+    #         - Migration upward stable is supported by three particles??  
+    # =============================================================================                      
+            # Upward migrations
+            for site_idx, num_event in self.migration_paths['Up']:
+            
+                    # First nearest neighbors: 1 jump upward
+                    # Supported by at least 2 particles (excluding this site)
+    
+                if site_idx not in self.supp_by and len(grid_crystal[site_idx].supp_by) > 2:
+                    energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
+                    energy_change = max(energy_site_destiny - self.energy_site, 0)
+                   
+                    # Migrating upward from the substrate
+                    if 'bottom_layer' in self.supp_by and grid_crystal[site_idx].wulff_facet == facets_type[0]:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[1] + energy_change])
+                    
+                    elif 'bottom_layer' in self.supp_by and grid_crystal[site_idx].wulff_facet == facets_type[0]:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[5] + energy_change])
+                        
+                    # Migrating upward from the film (111)
+                    elif self.wulff_facet == facets_type[0]:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[3] + energy_change])
+                        
+                    # Migrating upward from the film (100)
+                    elif self.wulff_facet ==  facets_type[1]:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[8] + energy_change])
+    
+                    
+            # Downward migrations
+            for site_idx, num_event in self.migration_paths['Down']:
+    
+                    # First nearest neighbors: 1 jump downward
+                    # Supported by at least 2 particles (excluding this site)
+                if site_idx not in self.supp_by and ('bottom_layer' in grid_crystal[site_idx].supp_by or len(grid_crystal[site_idx].supp_by) > 1):
+                    energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
+                    energy_change = max(energy_site_destiny - self.energy_site, 0)
+                    
+                    # From layer 1 to substrate
+                    if self.wulff_facet == facets_type[0] and 'bottom_layer' in grid_crystal[site_idx].supp_by:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[2] + energy_change])
+                    
+                    elif self.wulff_facet == facets_type[1] and 'bottom_layer' in grid_crystal[site_idx].supp_by:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[6] + energy_change])
+                    
+                    # Migrating downward from the film (111)
+                    elif self.wulff_facet == facets_type[0]:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[4] + energy_change])
+                        
+                    # Migrating downward from the film (100)
+                    elif self.wulff_facet == facets_type[1]:
+                        new_site_events.append([site_idx, num_event, self.Act_E_list[8] + energy_change])
+                
+            self.site_events = new_site_events
+            
+        # Migration of interstitial sites
+        else:
+            
+            new_site_events = []
+    
+            # Plane migrations
+            for site_idx, num_event in self.migration_paths['Plane']:
+                if site_idx not in self.supp_by:
+                    # Obtain energy difference between sites
+                    energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
+                    energy_change = max(energy_site_destiny - self.energy_site, 0)
+                    
                     new_site_events.append([site_idx, num_event, self.Act_E_list[1] + energy_change])
-                
-                elif 'bottom_layer' in self.supp_by and grid_crystal[site_idx].wulff_facet == (1,0,0):
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[5] + energy_change])
                     
-                # Migrating upward from the film (111)
-                elif self.wulff_facet == (1,1,1):
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[3] + energy_change])
-                    
-                # Migrating upward from the film (100)
-                elif self.wulff_facet ==  (1,0,0):
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[8] + energy_change])
+            # Upward migrations
+            for site_idx, num_event in self.migration_paths['Up']:
+                if site_idx not in self.supp_by:
+                    # Obtain energy difference between sites
+                    energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
+                    energy_change = max(energy_site_destiny - self.energy_site, 0)
 
-
-# =============================================================================
-#             VERY EXPENSIVE to include 2nd nearest neighbors in the migration
-#                 # Second nearest neighbors: 2 layers jump upward
-#                 for next_neighbor in grid_crystal[site_idx].migration_paths['Up']:
-#                     # Supported by at least 2 particles (this site is far)
-#                     if grid_crystal[next_neighbor[0]].chemical_specie == 'Empty' and len(grid_crystal[next_neighbor[0]].supp_by) > 1:
-#                         energy_site_destiny = self.calculate_clustering_energy(grid_crystal[next_neighbor[0]].supp_by,idx_origin)
-#                         energy_change = max(energy_site_destiny - self.energy_site, 0)
-#                         new_site_events.append([next_neighbor[0], self.num_event + 1, self.Act_E_list[5] + energy_change])
-#                 
-# =============================================================================
-                
-        # Downward migrations
-        for site_idx, num_event in self.migration_paths['Down']:
-            
-# =============================================================================
-#             """
-#             Same activation energy and num_event than normal downward migrations
-#             """
-#            VERY EXPENSIVE to include 2nd nearest neighbors in the migration
-
-#             # Second nearest neighbors: 1 jump downward + 1 jump in plane --> Facilitate migration between layers without crossing the edge (only two neighbors supporting)
-#             for next_neighbor in grid_crystal[site_idx].migration_paths['Plane']:
-#                 # Supported by at least 2 particles (this site is too far)
-#                 if grid_crystal[next_neighbor[0]].chemical_specie == 'Empty' and (('Substrate' in grid_crystal[next_neighbor[0]].supp_by) or len(grid_crystal[next_neighbor[0]].supp_by) > 1):
-#                     energy_site_destiny = self.calculate_clustering_energy(grid_crystal[next_neighbor[0]].supp_by,idx_origin)
-#                     energy_change = max(energy_site_destiny - self.energy_site, 0)
-#                     new_site_events.append([next_neighbor[0], num_event, act_energy + energy_change])
-# =============================================================================
-
-                # First nearest neighbors: 1 jump downward
-                # Supported by at least 2 particles (excluding this site)
-            if site_idx not in self.supp_by and ('bottom_layer' in grid_crystal[site_idx].supp_by or len(grid_crystal[site_idx].supp_by) > 1):
-                energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
-                energy_change = max(energy_site_destiny - self.energy_site, 0)
-                
-                # From layer 1 to substrate
-                if self.wulff_facet == (1,1,1) and 'bottom_layer' in grid_crystal[site_idx].supp_by:
                     new_site_events.append([site_idx, num_event, self.Act_E_list[2] + energy_change])
-                
-                elif self.wulff_facet == (1,0,0) and 'bottom_layer' in grid_crystal[site_idx].supp_by:
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[6] + energy_change])
-                
-                # Migrating downward from the film (111)
-                elif self.wulff_facet == (1,1,1):
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[4] + energy_change])
-                    
-                # Migrating downward from the film (100)
-                elif self.wulff_facet == (1,0,0):
-                    new_site_events.append([site_idx, num_event, self.Act_E_list[8] + energy_change])
-                
-# =============================================================================
-#             VERY EXPENSIVE to include 2nd nearest neighbors in the migration
-#                 # Second nearest neighbors: 2 layers jump downward
-#                 for next_neighbor in grid_crystal[site_idx].migration_paths['Down']:
-#                     # Supported by at least 2 particles (this site is too far)
-#                     if grid_crystal[next_neighbor[0]].chemical_specie == 'Empty' and (('Substrate' in grid_crystal[next_neighbor[0]].supp_by) or len(grid_crystal[next_neighbor[0]].supp_by) > 1):
-#                         energy_site_destiny = self.calculate_clustering_energy(grid_crystal[next_neighbor[0]].supp_by,idx_origin)
-#                         energy_change = max(energy_site_destiny - self.energy_site, 0)
-#                         new_site_events.append([next_neighbor[0], self.num_event + 2, self.Act_E_list[6] + energy_change])
-# 
-# =============================================================================
             
-        self.site_events = new_site_events
+            # Downward migrations
+            for site_idx, num_event in self.migration_paths['Down']:
+                if site_idx not in self.supp_by:
+                    # Obtain energy difference between sites
+                    energy_site_destiny = self.calculate_clustering_energy(grid_crystal[site_idx].supp_by,idx_origin)
+                    energy_change = max(energy_site_destiny - self.energy_site, 0)
+                    
+                    new_site_events.append([site_idx, num_event, self.Act_E_list[3] + energy_change])
+
+            self.site_events = new_site_events
+
         
     def deposition_event(self,TR,idx_origin,num_event,Act_E):
         self.site_events.append([TR,idx_origin, num_event, Act_E])
@@ -382,7 +366,7 @@ class Site():
 
     def detect_planes(self,grid_crystal,wulff_facets):
         
-        atom_coordinates = np.array([grid_crystal[idx].position for idx in self.supp_by if idx != 'bottom_layer'])
+        atom_coordinates = np.array([grid_crystal[idx].position for idx in self.supp_by if idx != 'bottom_layer' and idx != 'top_layer'])
         # atom_coordinates = tuple([grid_crystal[idx].position for idx in self.supp_by if idx != 'Substrate'])
         # Order the coordinates according to the first value, then the second, etc.
         # We are ordering the row, not the elements of the coordinates (x,y,z)
